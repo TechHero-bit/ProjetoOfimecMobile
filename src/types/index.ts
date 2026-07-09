@@ -11,7 +11,11 @@ export interface Cliente {
   telefone: string;
   email: string;
   endereco: string;
+  cidade?: string;
+  estado?: string;
+  cep?: string;
   dataCadastro?: Date;
+  dataAtualizacao?: Date;
 }
 
 // ========== Veículo ==========
@@ -24,7 +28,10 @@ export interface Veiculo {
   ano: number;
   placa: string;
   cor: string;
+  combustivel?: string;
   quilometragem: number;
+  dataCadastro?: Date;
+  dataAtualizacao?: Date;
 }
 
 // ========== Ordem de Serviço ==========
@@ -41,13 +48,17 @@ export interface OrdemServico {
   clienteNome?: string;
   veiculoId: number;
   veiculoInfo?: string;
+  numeroOs?: string;
   descricaoProblema: string;
   servicos: ServicoItem[];
   status: StatusOS;
   dataAbertura: Date;
   dataConclusao?: Date;
+  dataEntrega?: Date;
+  dataAtualizacao?: Date;
   observacoes: string;
   valorTotal: number;
+  valorPago?: number;
 }
 
 // ========== Dashboard ==========

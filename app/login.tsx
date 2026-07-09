@@ -1,9 +1,11 @@
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, KeyboardAvoidingView, Platform, StyleSheet, Text, View, Image } from 'react-native';
 
 import { useAuth } from '@/src/contexts/AuthContext';
 import { COLORS } from '@/src/theme';
+import Input from '@/src/components/Input';
+import Button from '@/src/components/Button';
 
 export default function LoginScreen() {
   const { signIn, loading } = useAuth();
@@ -13,42 +15,73 @@ export default function LoginScreen() {
 
   async function handleSignIn() {
     setError('');
+    
+    // Basic validation
+    if (!email || !password) {
+      setError('Por favor, preencha todos os campos.');
+      return;
+    }
+
     try {
       await signIn(email, password);
       router.replace('/(tabs)');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Não foi possível entrar.');
+      setError(err instanceof Error ? err.message : 'Não foi possível entrar. Verifique suas credenciais.');
     }
   }
 
+  const isFormValid = email.length > 0 && password.length >= 6;
+
   return (
-    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.container}>
-      <View style={styles.card}>
-        <Text style={styles.title}>Ofimec Mobile</Text>
-        <Text style={styles.subtitle}>Acesse sua conta para gerenciar oficina</Text>
+    <KeyboardAvoidingView 
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined} 
+      style={styles.container}
+    >
+      <View style={styles.content}>
+        <View style={styles.header}>
+          <View style={styles.logoContainer}>
+            <Text style={styles.logoText}>OM</Text>
+          </View>
+          <Text style={styles.title}>Ofimec Mobile</Text>
+          <Text style={styles.subtitle}>Gestão de oficina inteligente</Text>
+        </View>
 
-        <TextInput
-          style={styles.input}
-          placeholder="E-mail"
-          autoCapitalize="none"
-          keyboardType="email-address"
-          value={email}
-          onChangeText={setEmail}
-        />
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>Acesse sua conta</Text>
+          
+          <Input
+            label="E-mail"
+            icon="mail-outline"
+            placeholder="Seu e-mail cadastrado"
+            autoCapitalize="none"
+            keyboardType="email-address"
+            value={email}
+            onChangeText={setEmail}
+          />
 
-        <TextInput
-          style={styles.input}
-          placeholder="Senha"
-          secureTextEntry
-          value={password}
-          onChangeText={setPassword}
-        />
+          <Input
+            label="Senha"
+            icon="lock-closed-outline"
+            placeholder="Sua senha de acesso"
+            secureTextEntry
+            value={password}
+            onChangeText={setPassword}
+          />
 
-        {error ? <Text style={styles.error}>{error}</Text> : null}
+          {error ? (
+            <View style={styles.errorContainer}>
+              <Text style={styles.errorText}>{error}</Text>
+            </View>
+          ) : null}
 
-        <Pressable style={styles.button} onPress={handleSignIn} disabled={loading}>
-          {loading ? <ActivityIndicator color={COLORS.white} /> : <Text style={styles.buttonText}>Entrar</Text>}
-        </Pressable>
+          <Button 
+            title="Entrar" 
+            onPress={handleSignIn} 
+            loading={loading}
+            disabled={!isFormValid}
+            style={styles.button}
+          />
+        </View>
       </View>
     </KeyboardAvoidingView>
   );
@@ -57,51 +90,80 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: COLORS.gray100,
+  },
+  content: {
+    flex: 1,
     justifyContent: 'center',
     padding: 24,
-    backgroundColor: COLORS.background,
+  },
+  header: {
+    alignItems: 'center',
+    marginBottom: 40,
+  },
+  logoContainer: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: COLORS.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
+    shadowColor: COLORS.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  logoText: {
+    fontSize: 32,
+    fontWeight: '900',
+    color: COLORS.white,
+    letterSpacing: -1,
+  },
+  title: {
+    fontSize: 28,
+    fontWeight: '800',
+    color: COLORS.text,
+    letterSpacing: -0.5,
+  },
+  subtitle: {
+    fontSize: 15,
+    color: COLORS.textSecondary,
+    marginTop: 4,
   },
   card: {
     backgroundColor: COLORS.white,
-    borderRadius: 20,
+    borderRadius: 24,
     padding: 24,
-    gap: 12,
     shadowColor: COLORS.black,
-    shadowOpacity: 0.08,
-    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.05,
+    shadowRadius: 24,
     elevation: 4,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: COLORS.primary,
-  },
-  subtitle: {
-    fontSize: 14,
-    color: COLORS.textSecondary,
-    marginBottom: 8,
-  },
-  input: {
     borderWidth: 1,
-    borderColor: COLORS.border,
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
+    borderColor: 'rgba(0,0,0,0.02)',
+  },
+  cardTitle: {
+    fontSize: 18,
+    fontWeight: '700',
     color: COLORS.text,
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+  errorContainer: {
+    backgroundColor: `${COLORS.danger}10`,
+    padding: 12,
+    borderRadius: 12,
+    marginBottom: 16,
+  },
+  errorText: {
+    color: COLORS.danger,
+    fontSize: 13,
+    fontWeight: '500',
+    textAlign: 'center',
   },
   button: {
     marginTop: 8,
-    backgroundColor: COLORS.primary,
-    borderRadius: 12,
-    paddingVertical: 14,
-    alignItems: 'center',
-  },
-  buttonText: {
-    color: COLORS.white,
-    fontWeight: '700',
-  },
-  error: {
-    color: COLORS.danger,
-    fontSize: 13,
   },
 });
