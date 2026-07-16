@@ -1,4 +1,4 @@
-import { COLORS } from '@/src/theme';
+import { BORDER_RADIUS, COLORS, SHADOWS, SPACING } from '@/src/theme';
 import { Ionicons } from '@expo/vector-icons';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
@@ -14,22 +14,24 @@ type Props = {
 
 export default function Button({ title, onPress, loading, style, variant = 'primary', icon, disabled }: Props) {
   const getBgColor = () => {
-    if (disabled) return COLORS.border;
+    if (disabled) return COLORS.outlineVariant;
     if (variant === 'primary') return COLORS.primary;
-    if (variant === 'secondary') return COLORS.secondary;
-    if (variant === 'danger') return COLORS.danger;
+    if (variant === 'secondary') return COLORS.secondaryContainer;
+    if (variant === 'danger') return COLORS.error;
     if (variant === 'outline') return 'transparent';
     return COLORS.primary;
   };
 
   const getTextColor = () => {
-    if (disabled) return COLORS.textSecondary;
+    if (disabled) return COLORS.onSurfaceVariant;
     if (variant === 'outline') return COLORS.primary;
-    return COLORS.white;
+    if (variant === 'secondary') return COLORS.onSecondaryContainer;
+    if (variant === 'danger') return COLORS.onError;
+    return COLORS.onPrimary;
   };
 
   const getBorderColor = () => {
-    if (variant === 'outline') return COLORS.primary;
+    if (variant === 'outline') return COLORS.outline;
     return 'transparent';
   };
 
@@ -62,16 +64,12 @@ export default function Button({ title, onPress, loading, style, variant = 'prim
 
 const styles = StyleSheet.create({
   button: {
-    paddingVertical: 14,
-    paddingHorizontal: 24,
-    borderRadius: 12,
+    paddingVertical: SPACING.md - 2,
+    paddingHorizontal: SPACING.lg,
+    borderRadius: BORDER_RADIUS.lg,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: COLORS.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 4,
+    ...SHADOWS.button,
   },
   content: {
     flexDirection: 'row',
@@ -79,11 +77,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   icon: {
-    marginRight: 8,
+    marginRight: SPACING.sm,
   },
   text: {
-    fontWeight: '800',
-    fontSize: 16,
+    fontWeight: '600',
+    fontSize: 14,
     letterSpacing: 0.5,
   },
 });

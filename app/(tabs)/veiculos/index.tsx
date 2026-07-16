@@ -1,21 +1,17 @@
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { FlatList, RefreshControl, StyleSheet, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useFocusEffect } from '@react-navigation/native';
+import { FlatList, RefreshControl, StyleSheet, View, Text } from 'react-native';
 
 import { listVeiculos } from '@/src/services/veiculo.service';
 import { listClientes } from '@/src/services/cliente.service';
-import { COLORS } from '@/src/theme';
-import type { Veiculo, Cliente } from '@/src/types';
+import { COLORS, SPACING, TYPOGRAPHY } from '@/src/theme';
+import type { Veiculo } from '@/src/types';
 
-import ScreenHeader from '@/src/components/ScreenHeader';
+import AppHeader from '@/src/components/AppHeader';
 import SearchBar from '@/src/components/SearchBar';
-import Card from '@/src/components/Card';
-import EmptyState from '@/src/components/EmptyState';
+import VeiculoCard from '@/src/components/VeiculoCard';
 import FAB from '@/src/components/FAB';
 
-// Tipo estendido para mostrar o nome do cliente na lista
 type VeiculoWithCliente = Veiculo & { clienteNome?: string };
 
 export default function VeiculosScreen() {
@@ -27,7 +23,6 @@ export default function VeiculosScreen() {
 
   const loadData = async () => {
     try {
-      // Carrega veículos e clientes em paralelo para fazer o "join" no frontend
       const [veiculosData, clientesData] = await Promise.all([
         listVeiculos(),
         listClientes()
@@ -78,78 +73,87 @@ export default function VeiculosScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={['top']}>
-      <ScreenHeader title="Veículos" icon="car-sport" />
+    <View style={styles.root}>
+      <AppHeader />
       
-      <View style={styles.container}>
-        <View style={styles.searchContainer}>
-          <SearchBar 
-            value={searchQuery} 
-            onChangeText={handleSearch} 
-            placeholder="Buscar por placa, marca ou cliente..." 
-          />
-        </View>
-
-        <FlatList
-          data={filteredVeiculos}
-          keyExtractor={(item) => item.id.toString()}
-          contentContainerStyle={styles.list}
-          refreshControl={
-            <RefreshControl refreshing={loading} onRefresh={loadData} tintColor={COLORS.primary} />
-          }
-          renderItem={({ item }) => (
-            <Card 
-              title={`${item.marca} ${item.modelo}`} 
-              subtitle={item.clienteNome ? `Cliente: ${item.clienteNome}` : undefined} 
-              icon="car-outline"
-              rightElement={<View style={styles.placaBadge}><Card title={item.placa} style={styles.placaBadgeInner} /></View>}
-              onPress={() => router.push(`/(tabs)/veiculos/${item.id}`)} 
-              style={styles.card}
-            />
-          )}
-          ListEmptyComponent={
-            !loading ? (
-              <EmptyState 
-                icon="car-sport-outline"
-                title={searchQuery ? 'Nenhum veículo encontrado' : 'Nenhum veículo cadastrado'}
-                description={searchQuery ? `Não encontramos resultados para "${searchQuery}"` : 'Comece adicionando seu primeiro veículo.'}
-                actionTitle={searchQuery ? undefined : 'Adicionar Veículo'}
-                onAction={searchQuery ? undefined : () => router.push('/(tabs)/veiculos/new')}
-              />
-            ) : null
-          }
-        />
-        
-        <FAB icon="add" onPress={() => router.push('/(tabs)/veiculos/new')} />
+      <View style={styles.headerArea}>
+        <Text style={styles.title}>Veículos</Text>
+        <Text style={styles.subtitle}>Gestão da frota e veículos de clientes.</Text>
       </View>
-    </SafeAreaView>
+
+      <View style={styles.searchArea}>
+        <SearchBar 
+          value={searchQuery} 
+          onChangeText={handleSearch} 
+          placeholder="Buscar por placa, marca ou cliente..." 
+        />
+      </View>
+
+      <FlatList
+        data={filteredVeiculos}
+        keyExtractor={(item) => item.id.toString()}
+        contentContainerStyle={styles.list}
+        refreshControl={
+          <RefreshControl refreshing={loading} onRefresh={loadData} tintColor={COLORS.primary} />
+        }
+        renderItem={({ item }) => (
+          <VeiculoCard 
+            placa={item.placa}
+            modelo={`${item.marca} ${item.modelo}`}
+            ano={item.ano}
+            proprietario={item.clienteNome || 'Desconhecido'}
+            // isEmpresa could be inferred if nome includes 'Ltda', 'SA', etc, 
+            // but just passing false for now as it's optional
+            isEmpresa={item.clienteNome ? item.clienteNome.toLowerCase().includes('ltda') : false}
+            onPress={() => router.push(`/(tabs)/veiculos/${item.id}`)}
+          />
+        )}
+        ListEmptyComponent={
+          !loading ? (
+            <Text style={styles.emptyText}>
+              {searchQuery ? `Não encontramos resultados para "${searchQuery}"` : 'Nenhum veículo cadastrado.'}
+            </Text>
+          ) : null
+        }
+      />
+      
+      <FAB icon="add" onPress={() => router.push('/(tabs)/veiculos/new')} />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: COLORS.white },
-  container: { flex: 1, backgroundColor: COLORS.gray100 },
-  searchContainer: {
-    padding: 16,
-    backgroundColor: COLORS.white,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
+  root: { 
+    flex: 1, 
+    backgroundColor: COLORS.background 
+  },
+  headerArea: {
+    padding: SPACING.md,
+    paddingBottom: SPACING.sm,
+  },
+  title: {
+    ...TYPOGRAPHY.headlineMd,
+    color: COLORS.onSurface,
+  },
+  subtitle: {
+    ...TYPOGRAPHY.bodyMd,
+    color: COLORS.onSurfaceVariant,
+    marginTop: 4,
+  },
+  searchArea: {
+    paddingHorizontal: SPACING.md,
+    marginBottom: SPACING.md,
   },
   list: { 
-    padding: 16,
+    padding: SPACING.md,
+    paddingTop: 0,
     paddingBottom: 100,
-    gap: 12,
-    flexGrow: 1,
+    gap: SPACING.md,
   },
-  card: {
-    marginBottom: 0,
-  },
-  placaBadge: {
-    marginLeft: 12,
-  },
-  placaBadgeInner: {
-    padding: 6,
-    paddingHorizontal: 10,
-    backgroundColor: COLORS.gray100,
+  emptyText: {
+    ...TYPOGRAPHY.bodyMd,
+    color: COLORS.onSurfaceVariant,
+    textAlign: 'center',
+    marginTop: SPACING.xl,
   },
 });

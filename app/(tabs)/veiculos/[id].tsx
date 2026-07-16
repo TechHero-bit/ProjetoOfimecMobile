@@ -1,16 +1,16 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View, Text } from 'react-native';
+import { Alert, Keyboard, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TouchableWithoutFeedback, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import Button from '@/src/components/Button';
+import Card from '@/src/components/Card';
 import Input from '@/src/components/Input';
 import ScreenHeader from '@/src/components/ScreenHeader';
-import Card from '@/src/components/Card';
-import { createVeiculo as svcCreate, getVeiculo as svcGet, updateVeiculo as svcUpdate, deleteVeiculo as svcDelete } from '@/src/services/veiculo.service';
 import { listClientes } from '@/src/services/cliente.service';
-import { COLORS, BORDER_RADIUS } from '@/src/theme';
-import type { Veiculo, Cliente } from '@/src/types';
+import { createVeiculo as svcCreate, deleteVeiculo as svcDelete, getVeiculo as svcGet, updateVeiculo as svcUpdate } from '@/src/services/veiculo.service';
+import { COLORS } from '@/src/theme';
+import type { Cliente, Veiculo } from '@/src/types';
 
 export default function VeiculoFormScreen() {
   const { id } = useLocalSearchParams();
@@ -100,10 +100,12 @@ export default function VeiculoFormScreen() {
       />
       
       <KeyboardAvoidingView 
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined} 
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'} 
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 20 : 0}
         style={styles.keyboardView}
       >
-        <ScrollView contentContainerStyle={styles.container}>
+        <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+          <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
           {initialLoading ? (
             <View style={styles.loadingContainer}>
               <Button title="Carregando..." loading={true} variant="outline" />
@@ -244,7 +246,8 @@ export default function VeiculoFormScreen() {
               </View>
             </>
           )}
-        </ScrollView>
+          </ScrollView>
+        </TouchableWithoutFeedback>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );

@@ -1,4 +1,4 @@
-import { COLORS, BORDER_RADIUS } from '@/src/theme';
+import { BORDER_RADIUS, COLORS, SPACING, TYPOGRAPHY } from '@/src/theme';
 import { Ionicons } from '@expo/vector-icons';
 import { StyleSheet, Text, TextInput, View } from 'react-native';
 
@@ -40,13 +40,13 @@ export default function Input({
         !editable ? styles.inputDisabled : null
       ]}>
         {icon && (
-          <Ionicons name={icon} size={20} color={COLORS.textSecondary} style={styles.icon} />
+          <Ionicons name={icon} size={20} color={COLORS.onSurfaceVariant} style={styles.icon} />
         )}
         <TextInput
           value={value !== undefined ? String(value) : ''}
           onChangeText={onChangeText}
           placeholder={placeholder}
-          placeholderTextColor={COLORS.textSecondary}
+          placeholderTextColor={COLORS.onSurfaceVariant}
           style={[styles.input, multiline && styles.inputMultiline]}
           multiline={multiline}
           keyboardType={keyboardType}
@@ -61,45 +61,48 @@ export default function Input({
 }
 
 const styles = StyleSheet.create({
-  wrapper: { width: '100%', marginBottom: 16 },
+  wrapper: { 
+    width: '100%', 
+    marginBottom: SPACING.lg 
+  },
   label: { 
-    color: COLORS.text, 
-    marginBottom: 8,
-    fontSize: 14,
+    ...TYPOGRAPHY.bodyMd,
+    color: COLORS.onSurface, 
+    marginBottom: SPACING.sm,
     fontWeight: '600',
   },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.gray100,
-    borderRadius: BORDER_RADIUS.sm,
+    backgroundColor: COLORS.surfaceContainerLow,
+    borderRadius: BORDER_RADIUS.md,
     borderWidth: 1,
-    borderColor: 'transparent',
+    borderColor: COLORS.outlineVariant,
   },
   inputError: {
-    borderColor: COLORS.danger,
-    backgroundColor: `${COLORS.danger}05`,
+    borderColor: COLORS.error,
+    backgroundColor: `${COLORS.error}08`,
   },
   inputDisabled: {
     opacity: 0.6,
   },
   icon: {
-    paddingLeft: 16,
+    paddingLeft: SPACING.md,
   },
   input: {
     flex: 1,
-    padding: 16,
-    color: COLORS.text,
-    fontSize: 16,
+    padding: SPACING.md,
+    color: COLORS.onSurface,
+    ...TYPOGRAPHY.bodyMd,
   },
   inputMultiline: {
     minHeight: 100,
     textAlignVertical: 'top',
   },
   errorText: {
-    color: COLORS.danger,
-    fontSize: 12,
-    marginTop: 4,
-    fontWeight: '500',
+    color: COLORS.error,
+    ...TYPOGRAPHY.labelMd,
+    marginTop: SPACING.xs,
+    fontWeight: '600',
   },
 });

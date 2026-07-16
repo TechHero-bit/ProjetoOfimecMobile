@@ -1,4 +1,4 @@
-import { BORDER_RADIUS, COLORS, SHADOWS } from '@/src/theme';
+import { BORDER_RADIUS, COLORS, SHADOWS, SPACING } from '@/src/theme';
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
@@ -51,31 +51,31 @@ export default function Card({ title, subtitle, icon, iconColor = COLORS.primary
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: COLORS.white,
-    borderRadius: BORDER_RADIUS.md,
+    backgroundColor: COLORS.surfaceContainerLowest,
+    borderRadius: BORDER_RADIUS.lg,
     borderWidth: 1,
-    borderColor: COLORS.border,
-    ...SHADOWS.card,
+    borderColor: COLORS.outlineVariant,
+    ...SHADOWS.level1,
     overflow: 'hidden',
   },
   pressed: {
-    opacity: 0.7,
-    backgroundColor: COLORS.gray100,
+    opacity: 0.8,
+    backgroundColor: COLORS.surfaceContainerLow,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 16,
+    padding: SPACING.md,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.gray100,
+    borderBottomColor: COLORS.outlineVariant,
   },
   iconContainer: {
     width: 48,
     height: 48,
-    borderRadius: BORDER_RADIUS.sm,
+    borderRadius: BORDER_RADIUS.md,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 12,
+    marginRight: SPACING.md,
   },
   headerTextContainer: {
     flex: 1,
@@ -83,22 +83,22 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 16,
     fontWeight: '800',
-    color: COLORS.text,
+    color: COLORS.onSurface,
     letterSpacing: -0.3,
   },
   subtitle: {
     marginTop: 2,
     fontSize: 13,
-    color: COLORS.textSecondary,
+    color: COLORS.onSurfaceVariant,
   },
   rightElement: {
-    marginLeft: 12,
+    marginLeft: SPACING.md,
   },
   content: {
-    padding: 16,
+    padding: SPACING.md,
   },
   contentWithHeader: {
-    padding: 16,
-    paddingTop: 12,
+    padding: SPACING.md,
+    paddingTop: SPACING.sm,
   },
 });

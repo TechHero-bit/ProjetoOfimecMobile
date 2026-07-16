@@ -1,4 +1,4 @@
-import { COLORS } from '@/src/theme';
+import { COLORS, SPACING, TYPOGRAPHY } from '@/src/theme';
 import { Ionicons } from '@expo/vector-icons';
 import { StyleSheet, Text, View } from 'react-native';
 
@@ -13,8 +13,8 @@ export default function ScreenHeader({ title, subtitle, rightElement, icon }: Pr
   return (
     <View style={styles.container}>
       <View style={styles.titleContainer}>
-        {icon && <Ionicons name={icon} size={28} color={COLORS.primary} style={styles.icon} />}
-        <View>
+        {icon && <Ionicons name={icon} size={32} color={COLORS.primary} style={styles.icon} />}
+        <View style={styles.textContainer}>
           <Text style={styles.title}>{title}</Text>
           {subtitle && <Text style={styles.subtitle}>{subtitle}</Text>}
         </View>
@@ -29,32 +29,34 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 16,
-    paddingHorizontal: 20,
-    backgroundColor: COLORS.white,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
+    paddingVertical: SPACING.md,
+    paddingHorizontal: SPACING.md,
+    backgroundColor: COLORS.surface,
+    borderBottomWidth: 0,
+    gap: SPACING.sm,
   },
   titleContainer: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     flex: 1,
+    gap: SPACING.sm,
   },
   icon: {
-    marginRight: 12,
+    marginTop: SPACING.xs,
+  },
+  textContainer: {
+    flex: 1,
   },
   title: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: COLORS.text,
-    letterSpacing: -0.5,
+    ...TYPOGRAPHY.headlineMd,
+    color: COLORS.onSurface,
   },
   subtitle: {
-    fontSize: 14,
-    color: COLORS.textSecondary,
-    marginTop: 2,
+    ...TYPOGRAPHY.bodyMd,
+    color: COLORS.onSurfaceVariant,
+    marginTop: SPACING.xs,
   },
   rightContainer: {
-    marginLeft: 16,
+    marginLeft: SPACING.md,
   },
 });

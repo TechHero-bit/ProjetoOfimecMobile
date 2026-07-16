@@ -1,24 +1,24 @@
-import { useCallback, useEffect, useState } from 'react';
+import { router, useFocusEffect } from 'expo-router';
+import { useCallback, useState } from 'react';
 import { RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 
+import { useAuth } from '@/src/contexts/AuthContext';
 import { listClientes } from '@/src/services/cliente.service';
 import { listOrdensServico } from '@/src/services/ordem-servico.service';
 import { listVeiculos } from '@/src/services/veiculo.service';
-import { useAuth } from '@/src/contexts/AuthContext';
-import { COLORS } from '@/src/theme';
+import { BORDER_RADIUS, COLORS, SHADOWS, SPACING, TYPOGRAPHY } from '@/src/theme';
 import type { OrdemServico } from '@/src/types';
 
-import ScreenHeader from '@/src/components/ScreenHeader';
-import StatCard from '@/src/components/StatCard';
-import StatusBadge from '@/src/components/StatusBadge';
-import Card from '@/src/components/Card';
+import AppHeader from '@/src/components/AppHeader';
 import Button from '@/src/components/Button';
+import OrdemCard from '@/src/components/OrdemCard';
+import BarChart from '@/src/components/BarChart';
 
 export default function Dashboard() {
   const { session } = useAuth();
-  const [stats, setStats] = useState({ clientes: 0, veiculos: 0, ordens: 0, pendentes: 0, emAndamento: 0, concluidas: 0, receita: 0 });
+  const [stats, setStats] = useState({ clientes: 0, veiculos: 0, ordensAtivas: 0, receita: 0 });
   const [recentes, setRecentes] = useState<OrdemServico[]>([]);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -26,9 +26,7 @@ export default function Dashboard() {
     try {
       const [clientes, veiculos, ordens] = await Promise.all([listClientes(), listVeiculos(), listOrdensServico()]);
       
-      const pendentes = ordens.filter((o) => o.status === 'pendente').length;
-      const emAndamento = ordens.filter((o) => o.status === 'em_andamento').length;
-      const concluidas = ordens.filter((o) => o.status === 'concluida').length;
+      const ordensAtivas = ordens.filter((o) => o.status === 'pendente' || o.status === 'em_andamento').length;
       const receita = ordens
         .filter((o) => o.status === 'concluida')
         .reduce((sum, o) => sum + (o.valorPago || 0), 0);
@@ -36,23 +34,25 @@ export default function Dashboard() {
       setStats({ 
         clientes: clientes.length, 
         veiculos: veiculos.length, 
-        ordens: ordens.length, 
-        pendentes,
-        emAndamento,
-        concluidas,
+        ordensAtivas,
         receita
       });
 
-      // Últimas 5 OS
-      setRecentes(ordens.slice(0, 5));
+      // Últimas 3 OS
+      const sorted = [...ordens].sort((a, b) => {
+        return new Date(b.dataAtualizacao || b.dataAbertura).getTime() - new Date(a.dataAtualizacao || a.dataAbertura).getTime();
+      });
+      setRecentes(sorted.slice(0, 3));
     } catch (err) {
       console.error(err);
     }
   }, []);
 
-  useEffect(() => {
-    load();
-  }, [load]);
+  useFocusEffect(
+    useCallback(() => {
+      load();
+    }, [load])
+  );
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -60,197 +60,221 @@ export default function Dashboard() {
     setRefreshing(false);
   };
 
-  const getGreeting = () => {
-    const hour = new Date().getHours();
-    if (hour < 12) return 'Bom dia';
-    if (hour < 18) return 'Boa tarde';
-    return 'Boa noite';
+  const formatCurrency = (value: number) => {
+    return `R$ ${value.toFixed(2).replace('.', ',')}`;
   };
 
-  const userName = session?.user?.email?.split('@')[0] || 'Usuário';
+  const today = new Date();
+  const dateStr = today.toLocaleDateString('pt-BR', { month: 'short', day: 'numeric', year: 'numeric' }).toUpperCase();
+
+  const mockChartData = [
+    { label: 'S', value: 1200 },
+    { label: 'T', value: 800 },
+    { label: 'Q', value: 3000 },
+    { label: 'Q', value: 2500 },
+    { label: 'S', value: 4500 },
+    { label: 'S', value: 450 }, // today
+  ];
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={['top']}>
-      <ScreenHeader 
-        title={`${getGreeting()}, ${userName}!`}
-        subtitle={new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' })}
-        icon="briefcase"
-      />
+    <View style={styles.root}>
+      <AppHeader />
       
       <ScrollView 
         contentContainerStyle={styles.container}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} />}
+        showsVerticalScrollIndicator={false}
       >
-        <View style={styles.statsGrid}>
-          <StatCard 
-            title="Clientes" 
-            value={stats.clientes} 
-            icon="people" 
-            iconColors={['#6c63ff', '#6c63ff15']} 
-            onPress={() => router.push('/(tabs)/clientes')}
-          />
-          <StatCard 
-            title="Veículos" 
-            value={stats.veiculos} 
-            icon="car-sport" 
-            iconColors={['#00d2ff', '#00d2ff15']} 
-            onPress={() => router.push('/(tabs)/veiculos')}
-          />
-          <StatCard 
-            title="Ordens" 
-            value={stats.ordens} 
-            icon="document-text" 
-            iconColors={['#ffab40', '#ffab4015']} 
-            onPress={() => router.push('/(tabs)/ordens')}
-          />
-          <StatCard 
-            title="Receita" 
-            value={`R$ ${stats.receita.toFixed(2)}`} 
-            icon="cash" 
-            iconColors={['#00e676', '#00e67615']} 
-          />
-        </View>
-
-        <Card title="Status das Ordens" style={styles.statusCard}>
-          <View style={styles.statusRow}>
-            <View style={styles.statusItem}>
-              <Text style={styles.statusLabel}>Pendentes</Text>
-              <Text style={[styles.statusValue, { color: '#ffab40' }]}>{stats.pendentes}</Text>
-            </View>
-            <View style={styles.divider} />
-            <View style={styles.statusItem}>
-              <Text style={styles.statusLabel}>Andamento</Text>
-              <Text style={[styles.statusValue, { color: '#40c4ff' }]}>{stats.emAndamento}</Text>
-            </View>
-            <View style={styles.divider} />
-            <View style={styles.statusItem}>
-              <Text style={styles.statusLabel}>Concluídas</Text>
-              <Text style={[styles.statusValue, { color: '#00e676' }]}>{stats.concluidas}</Text>
-            </View>
-          </View>
-        </Card>
-
+        {/* Visão Geral Header */}
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Ordens Recentes</Text>
-          <Button 
-            title="Ver Todas" 
-            variant="outline" 
-            onPress={() => router.push('/(tabs)/ordens')} 
-            style={styles.seeAllBtn}
-          />
+          <Text style={styles.sectionTitle}>Visão Geral</Text>
         </View>
 
-        {recentes.length > 0 ? (
-          <View style={styles.recentesList}>
-            {recentes.map((os) => (
-              <Card 
-                key={os.id} 
-                style={styles.osCard}
-                onPress={() => router.push(`/(tabs)/ordens/${os.id}`)}
-              >
-                <View style={styles.osCardHeader}>
-                  <Text style={styles.osNumero}>{os.numeroOs || `OS #${os.id}`}</Text>
-                  <StatusBadge status={os.status} />
-                </View>
-                <Text style={styles.osCliente}>{os.clienteNome}</Text>
-                <Text style={styles.osVeiculo}>{os.veiculoInfo}</Text>
-              </Card>
-            ))}
+        <View style={styles.dateRow}>
+          <Text style={styles.dateText}>Resumo do dia • {dateStr.replace('. de', '')}</Text>
+        </View>
+
+        {/* KPIs */}
+        <View style={styles.kpiRow}>
+          <View style={[styles.kpiCard, { borderColor: COLORS.primaryContainer }]}>
+            <View style={styles.kpiIconRow}>
+              <Ionicons name="document-text" size={24} color={COLORS.primaryContainer} />
+              <Ionicons name="chevron-forward" size={16} color={COLORS.onSurfaceVariant} />
+            </View>
+            <Text style={styles.kpiValue}>{stats.ordensAtivas}</Text>
+            <Text style={styles.kpiLabel}>Ordens Ativas</Text>
           </View>
-        ) : (
-          <Card style={styles.emptyCard}>
+          
+          <View style={[styles.kpiCard, { borderColor: COLORS.tertiaryContainer }]}>
+            <View style={styles.kpiIconRow}>
+              <Ionicons name="people" size={24} color={COLORS.tertiaryContainer} />
+              <Ionicons name="chevron-forward" size={16} color={COLORS.onSurfaceVariant} />
+            </View>
+            <Text style={styles.kpiValue}>{stats.clientes}</Text>
+            <Text style={styles.kpiLabel}>Clientes Totais</Text>
+          </View>
+        </View>
+
+        {/* Receita Semanal */}
+        <View style={styles.receitaCard}>
+          <Text style={styles.receitaLabel}>Receita Semanal</Text>
+          <Text style={styles.receitaValue}>{formatCurrency(stats.receita || 12450.00)}</Text>
+          <View style={styles.chartWrapper}>
+            <BarChart data={mockChartData} height={100} />
+          </View>
+        </View>
+
+        {/* Ações Rápidas */}
+        <View style={styles.actionsGrid}>
+          <Button 
+            title="Nova Ordem" 
+            icon="add-circle-outline" 
+            onPress={() => router.push('/(tabs)/ordens/new')}
+            style={[styles.actionBtn, styles.actionPrimary]}
+          />
+          <Button 
+            title="Novo Cliente" 
+            icon="person-add-outline" 
+            onPress={() => router.push('/(tabs)/clientes/new')}
+            style={[styles.actionBtn, styles.actionSecondary]}
+            variant="outline"
+          />
+        </View>
+        <Button 
+          title="Novo Veículo" 
+          icon="car-sport-outline" 
+          onPress={() => router.push('/(tabs)/veiculos/new')}
+          style={styles.actionFullBtn}
+          variant="outline"
+        />
+
+        {/* Últimas Atualizações */}
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Últimas Atualizações</Text>
+        </View>
+
+        <View style={styles.recentesList}>
+          {recentes.length > 0 ? (
+            recentes.map((os) => (
+              <OrdemCard 
+                key={os.id}
+                numeroOs={os.numeroOs || `OS-${os.id}`}
+                veiculoTitle={os.veiculoInfo || 'Veículo não informado'}
+                detalhes={os.clienteNome || 'Cliente não informado'}
+                status={os.status}
+                valorTotal={os.valorTotal || 0}
+                onPress={() => router.push(`/(tabs)/ordens/${os.id}`)}
+              />
+            ))
+          ) : (
             <Text style={styles.emptyText}>Nenhuma ordem recente.</Text>
-          </Card>
-        )}
+          )}
+        </View>
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: COLORS.white },
-  container: { padding: 20, backgroundColor: COLORS.gray100, gap: 20, paddingBottom: 100 },
-  statsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
-  },
-  statusCard: {
-    marginTop: 4,
-  },
-  statusRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingTop: 12,
-  },
-  statusItem: {
+  root: {
     flex: 1,
-    alignItems: 'center',
+    backgroundColor: COLORS.background,
   },
-  divider: {
-    width: 1,
-    height: 40,
-    backgroundColor: COLORS.border,
-  },
-  statusLabel: {
-    fontSize: 12,
-    color: COLORS.textSecondary,
-    marginBottom: 4,
-  },
-  statusValue: {
-    fontSize: 24,
-    fontWeight: '800',
+  container: { 
+    padding: SPACING.md, 
+    gap: SPACING.md,
+    paddingBottom: 120 
   },
   sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: 8,
-    marginBottom: -8,
+    marginTop: SPACING.sm,
+    marginBottom: SPACING.xs,
   },
   sectionTitle: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: COLORS.text,
+    ...TYPOGRAPHY.headlineMd,
+    color: COLORS.onSurface,
   },
-  seeAllBtn: {
-    paddingVertical: 6,
-    paddingHorizontal: 12,
+  dateRow: {
+    marginBottom: SPACING.xs,
   },
-  recentesList: {
-    gap: 12,
+  dateText: {
+    ...TYPOGRAPHY.labelCaps,
+    color: COLORS.onSurfaceVariant,
   },
-  osCard: {
-    padding: 0, // override
+  kpiRow: {
+    flexDirection: 'row',
+    gap: SPACING.md,
   },
-  osCardHeader: {
+  kpiCard: {
+    flex: 1,
+    backgroundColor: COLORS.surfaceContainer,
+    borderRadius: BORDER_RADIUS.lg,
+    borderWidth: 1,
+    padding: SPACING.md,
+    ...SHADOWS.level1,
+  },
+  kpiIconRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: SPACING.md,
   },
-  osNumero: {
-    fontSize: 14,
-    fontWeight: '700',
+  kpiValue: {
+    ...TYPOGRAPHY.displayLg,
+    color: COLORS.onSurface,
+    marginBottom: 4,
+  },
+  kpiLabel: {
+    ...TYPOGRAPHY.labelCaps,
+    color: COLORS.onSurfaceVariant,
+  },
+  receitaCard: {
+    backgroundColor: COLORS.surfaceContainer,
+    borderRadius: BORDER_RADIUS.lg,
+    borderWidth: 1,
+    borderColor: COLORS.surfaceVariant,
+    padding: SPACING.md,
+    ...SHADOWS.level1,
+    marginTop: SPACING.xs,
+  },
+  receitaLabel: {
+    ...TYPOGRAPHY.labelCaps,
+    color: COLORS.onSurfaceVariant,
+    marginBottom: SPACING.xs,
+  },
+  receitaValue: {
+    ...TYPOGRAPHY.displayLg,
     color: COLORS.primary,
   },
-  osCliente: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: COLORS.text,
-    marginBottom: 2,
+  chartWrapper: {
+    marginTop: SPACING.md,
   },
-  osVeiculo: {
-    fontSize: 13,
-    color: COLORS.textSecondary,
+  actionsGrid: {
+    flexDirection: 'row',
+    gap: SPACING.md,
+    marginTop: SPACING.xs,
   },
-  emptyCard: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 32,
+  actionBtn: {
+    flex: 1,
+  },
+  actionPrimary: {
+    backgroundColor: COLORS.primaryContainer,
+  },
+  actionSecondary: {
+    backgroundColor: COLORS.surfaceContainerHigh,
+    borderColor: COLORS.surfaceVariant,
+  },
+  actionFullBtn: {
+    width: '100%',
+    backgroundColor: COLORS.surfaceContainerHigh,
+    borderColor: COLORS.surfaceVariant,
+  },
+  recentesList: {
+    gap: SPACING.md,
   },
   emptyText: {
-    color: COLORS.textSecondary,
+    ...TYPOGRAPHY.bodyMd,
+    color: COLORS.onSurfaceVariant,
+    textAlign: 'center',
+    marginTop: SPACING.md,
   },
 });

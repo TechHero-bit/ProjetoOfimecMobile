@@ -1,33 +1,42 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
-import { Platform } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { COLORS } from '@/src/theme';
+import { COLORS, SPACING } from '@/src/theme';
 
 export default function TabLayout() {
+  const insets = useSafeAreaInsets();
+
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: COLORS.primary,
-        tabBarInactiveTintColor: COLORS.textSecondary,
+        tabBarInactiveTintColor: COLORS.onSecondaryFixedVariant,
         tabBarStyle: {
-          backgroundColor: COLORS.white,
+          backgroundColor: COLORS.surfaceContainer,
           borderTopWidth: 1,
-          borderTopColor: COLORS.gray100,
-          paddingTop: 8,
-          paddingBottom: Platform.OS === 'ios' ? 28 : 8,
-          height: Platform.OS === 'ios' ? 88 : 64,
-          elevation: 8,
+          borderTopColor: COLORS.surfaceVariant,
+          paddingTop: SPACING.sm,
+          paddingBottom: insets.bottom + SPACING.sm,
+          paddingHorizontal: SPACING.md,
+          height: insets.bottom + 64,
+          elevation: 2,
           shadowColor: COLORS.black,
-          shadowOffset: { width: 0, height: -4 },
+          shadowOffset: { width: 0, height: -2 },
           shadowOpacity: 0.05,
-          shadowRadius: 12,
+          shadowRadius: 6,
+        },
+        tabBarItemStyle: {
+          marginVertical: SPACING.xs,
+        },
+        tabBarIconStyle: {
+          marginBottom: -2,
         },
         tabBarLabelStyle: {
-          fontSize: 12,
+          fontSize: 11,
           fontWeight: '600',
-          marginTop: 4,
+          marginTop: SPACING.xs,
         },
       }}
     >
@@ -67,14 +76,23 @@ export default function TabLayout() {
           ),
         }}
       />
+
+      {/* Rotas ocultas da tab bar — acessíveis via navegação programática */}
       <Tabs.Screen
         name="perfil"
-        options={{
-          title: 'Perfil',
-          tabBarIcon: ({ color, size, focused }) => (
-            <Ionicons name={focused ? "person" : "person-outline"} size={size} color={color} />
-          ),
-        }}
+        options={{ href: null }}
+      />
+      <Tabs.Screen
+        name="clientes/[id]"
+        options={{ href: null }}
+      />
+      <Tabs.Screen
+        name="ordens/[id]"
+        options={{ href: null }}
+      />
+      <Tabs.Screen
+        name="veiculos/[id]"
+        options={{ href: null }}
       />
     </Tabs>
   );

@@ -1,19 +1,18 @@
+import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View, Text, Pressable } from 'react-native';
+import { Alert, Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TouchableWithoutFeedback, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
 
 import Button from '@/src/components/Button';
+import Card from '@/src/components/Card';
 import Input from '@/src/components/Input';
 import ScreenHeader from '@/src/components/ScreenHeader';
-import Card from '@/src/components/Card';
-import StatusBadge from '@/src/components/StatusBadge';
-import { createOrdemServico as svcCreate, getOrdemServico as svcGet, updateOrdemServico as svcUpdate, deleteOrdemServico as svcDelete } from '@/src/services/ordem-servico.service';
 import { listClientes } from '@/src/services/cliente.service';
+import { createOrdemServico as svcCreate, deleteOrdemServico as svcDelete, getOrdemServico as svcGet, updateOrdemServico as svcUpdate } from '@/src/services/ordem-servico.service';
 import { listVeiculos } from '@/src/services/veiculo.service';
-import { COLORS, BORDER_RADIUS } from '@/src/theme';
-import type { OrdemServico, Cliente, Veiculo, StatusOS, ServicoItem } from '@/src/types';
+import { COLORS } from '@/src/theme';
+import type { Cliente, OrdemServico, ServicoItem, StatusOS, Veiculo } from '@/src/types';
 
 export default function OrdemFormScreen() {
   const { id } = useLocalSearchParams();
@@ -172,10 +171,12 @@ export default function OrdemFormScreen() {
       />
       
       <KeyboardAvoidingView 
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined} 
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'} 
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 20 : 0}
         style={styles.keyboardView}
       >
-        <ScrollView contentContainerStyle={styles.container}>
+        <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+          <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
           {initialLoading ? (
             <View style={styles.loadingContainer}>
               <Button title="Carregando..." loading={true} variant="outline" />
@@ -336,7 +337,8 @@ export default function OrdemFormScreen() {
               </View>
             </>
           )}
-        </ScrollView>
+          </ScrollView>
+        </TouchableWithoutFeedback>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );

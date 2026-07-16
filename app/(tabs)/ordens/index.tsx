@@ -1,31 +1,36 @@
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { FlatList, RefreshControl, StyleSheet, View, Text } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useFocusEffect } from '@react-navigation/native';
 
 import { listOrdensServico } from '@/src/services/ordem-servico.service';
 import { listClientes } from '@/src/services/cliente.service';
 import { listVeiculos } from '@/src/services/veiculo.service';
-import { COLORS } from '@/src/theme';
-import type { OrdemServico, Cliente, Veiculo } from '@/src/types';
+import { COLORS, SPACING, TYPOGRAPHY } from '@/src/theme';
+import type { OrdemServico, StatusOS } from '@/src/types';
 
-import ScreenHeader from '@/src/components/ScreenHeader';
+import AppHeader from '@/src/components/AppHeader';
 import SearchBar from '@/src/components/SearchBar';
-import Card from '@/src/components/Card';
-import EmptyState from '@/src/components/EmptyState';
+import FilterChips, { FilterOption } from '@/src/components/FilterChips';
+import OrdemCard from '@/src/components/OrdemCard';
 import FAB from '@/src/components/FAB';
-import StatusBadge from '@/src/components/StatusBadge';
 
 type OrdemWithDetails = OrdemServico & { 
   clienteNome?: string;
   veiculoDesc?: string;
 };
 
+const FILTER_OPTIONS: FilterOption[] = [
+  { id: 'todos', label: 'TODOS' },
+  { id: 'pendente', label: 'PENDENTES' },
+  { id: 'em_andamento', label: 'EM ANDAMENTO' },
+  { id: 'concluida', label: 'CONCLUÍDAS' },
+];
+
 export default function OrdensScreen() {
   const [ordens, setOrdens] = useState<OrdemWithDetails[]>([]);
   const [filteredOrdens, setFilteredOrdens] = useState<OrdemWithDetails[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedFilter, setSelectedFilter] = useState('todos');
   const [loading, setLoading] = useState(true);
   const router = useRouter();
 
@@ -49,15 +54,13 @@ export default function OrdensScreen() {
         veiculoDesc: o.veiculoId ? veiculosMap.get(o.veiculoId) : undefined
       }));
       
-      // Ordenar por data (mais recentes primeiro) e status (pendentes primeiro)
+      // Ordenar por data (mais recentes primeiro)
       ordensDetalhes.sort((a, b) => {
-        if (a.status === 'pendente' && b.status !== 'pendente') return -1;
-        if (a.status !== 'pendente' && b.status === 'pendente') return 1;
-        return (b.id || 0) - (a.id || 0); // fallback para ID
+        return new Date(b.dataAtualizacao || b.dataAbertura).getTime() - new Date(a.dataAtualizacao || a.dataAbertura).getTime();
       });
 
       setOrdens(ordensDetalhes);
-      filterData(ordensDetalhes, searchQuery);
+      applyFilters(ordensDetalhes, searchQuery, selectedFilter);
     } catch (err) {
       console.error(err);
     } finally {
@@ -71,164 +74,129 @@ export default function OrdensScreen() {
     }, [])
   );
 
-  const filterData = (data: OrdemWithDetails[], query: string) => {
-    if (!query.trim()) {
-      setFilteredOrdens(data);
-      return;
+  const applyFilters = (data: OrdemWithDetails[], query: string, filter: string) => {
+    let result = data;
+    
+    // Filtro por status
+    if (filter !== 'todos') {
+      result = result.filter(o => o.status === filter);
+    }
+
+    // Filtro por texto
+    if (query.trim()) {
+      const lowerQuery = query.toLowerCase();
+      result = result.filter(o => 
+        o.id.toString().includes(lowerQuery) || 
+        (o.clienteNome && o.clienteNome.toLowerCase().includes(lowerQuery)) ||
+        (o.veiculoDesc && o.veiculoDesc.toLowerCase().includes(lowerQuery)) ||
+        (o.numeroOs && o.numeroOs.toLowerCase().includes(lowerQuery))
+      );
     }
     
-    const lowerQuery = query.toLowerCase();
-    const filtered = data.filter(o => 
-      o.id.toString().includes(lowerQuery) || 
-      (o.clienteNome && o.clienteNome.toLowerCase().includes(lowerQuery)) ||
-      (o.veiculoDesc && o.veiculoDesc.toLowerCase().includes(lowerQuery)) ||
-      (o.numeroOs && o.numeroOs.toLowerCase().includes(lowerQuery))
-    );
-    setFilteredOrdens(filtered);
+    setFilteredOrdens(result);
   };
 
   const handleSearch = (text: string) => {
     setSearchQuery(text);
-    filterData(ordens, text);
+    applyFilters(ordens, text, selectedFilter);
   };
 
-  const formatCurrency = (value?: number) => {
-    if (value === undefined || value === null) return 'R$ 0,00';
-    return `R$ ${value.toFixed(2).replace('.', ',')}`;
+  const handleFilterSelect = (id: string) => {
+    setSelectedFilter(id);
+    applyFilters(ordens, searchQuery, id);
   };
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={['top']}>
-      <ScreenHeader title="Ordens de Serviço" icon="document-text" />
+    <View style={styles.root}>
+      <AppHeader />
       
-      <View style={styles.container}>
-        <View style={styles.searchContainer}>
-          <SearchBar 
-            value={searchQuery} 
-            onChangeText={handleSearch} 
-            placeholder="Buscar por nº, cliente ou veículo..." 
-          />
-        </View>
-
-        <FlatList
-          data={filteredOrdens}
-          keyExtractor={(item) => item.id.toString()}
-          contentContainerStyle={styles.list}
-          refreshControl={
-            <RefreshControl refreshing={loading} onRefresh={loadData} tintColor={COLORS.primary} />
-          }
-          renderItem={({ item }) => (
-            <Card 
-              onPress={() => router.push(`/(tabs)/ordens/${item.id}`)} 
-              style={styles.card}
-            >
-              <View style={styles.cardHeader}>
-                <View>
-                  <Text style={styles.osNumber}>{item.numeroOs || `OS #${item.id}`}</Text>
-                  <Text style={styles.osDate}>
-                    {new Date(item.dataAbertura || new Date()).toLocaleDateString('pt-BR')}
-                  </Text>
-                </View>
-                <StatusBadge status={item.status} />
-              </View>
-
-              <View style={styles.cardBody}>
-                <Text style={styles.clientName}>{item.clienteNome || 'Cliente não encontrado'}</Text>
-                <Text style={styles.veiculoDesc}>{item.veiculoDesc || 'Veículo não encontrado'}</Text>
-              </View>
-
-              <View style={styles.cardFooter}>
-                <Text style={styles.priceLabel}>Valor Total</Text>
-                <Text style={styles.priceValue}>{formatCurrency(item.valorTotal)}</Text>
-              </View>
-            </Card>
-          )}
-          ListEmptyComponent={
-            !loading ? (
-              <EmptyState 
-                icon="document-text-outline"
-                title={searchQuery ? 'Nenhuma ordem encontrada' : 'Nenhuma ordem cadastrada'}
-                description={searchQuery ? `Não encontramos resultados para "${searchQuery}"` : 'Comece criando sua primeira ordem de serviço.'}
-                actionTitle={searchQuery ? undefined : 'Nova Ordem'}
-                onAction={searchQuery ? undefined : () => router.push('/(tabs)/ordens/new')}
-              />
-            ) : null
-          }
-        />
-        
-        <FAB icon="add" onPress={() => router.push('/(tabs)/ordens/new')} />
+      <View style={styles.headerArea}>
+        <Text style={styles.title}>Ordens de Serviço</Text>
+        <Text style={styles.subtitle}>Gerencie os serviços em andamento</Text>
       </View>
-    </SafeAreaView>
+
+      <View style={styles.filterArea}>
+        <FilterChips 
+          options={FILTER_OPTIONS}
+          selectedId={selectedFilter}
+          onSelect={handleFilterSelect}
+        />
+      </View>
+
+      <View style={styles.searchArea}>
+        <SearchBar 
+          value={searchQuery} 
+          onChangeText={handleSearch} 
+          placeholder="Buscar por placa ou cliente..." 
+        />
+      </View>
+
+      <FlatList
+        data={filteredOrdens}
+        keyExtractor={(item) => item.id.toString()}
+        contentContainerStyle={styles.list}
+        refreshControl={
+          <RefreshControl refreshing={loading} onRefresh={loadData} tintColor={COLORS.primary} />
+        }
+        renderItem={({ item }) => (
+          <OrdemCard 
+            numeroOs={item.numeroOs || `OS-${item.id}`}
+            veiculoTitle={item.veiculoDesc || 'Veículo não informado'}
+            detalhes={item.clienteNome || 'Cliente não informado'}
+            status={item.status}
+            valorTotal={item.valorTotal || 0}
+            onPress={() => router.push(`/(tabs)/ordens/${item.id}`)}
+          />
+        )}
+        ListEmptyComponent={
+          !loading ? (
+            <Text style={styles.emptyText}>
+              {searchQuery ? `Não encontramos resultados para "${searchQuery}"` : 'Nenhuma ordem de serviço encontrada.'}
+            </Text>
+          ) : null
+        }
+      />
+      
+      <FAB icon="add" onPress={() => router.push('/(tabs)/ordens/new')} />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: COLORS.white },
-  container: { flex: 1, backgroundColor: COLORS.gray100 },
-  searchContainer: {
-    padding: 16,
-    backgroundColor: COLORS.white,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
+  root: { 
+    flex: 1, 
+    backgroundColor: COLORS.background 
+  },
+  headerArea: {
+    padding: SPACING.md,
+    paddingBottom: SPACING.sm,
+  },
+  title: {
+    ...TYPOGRAPHY.headlineMd,
+    color: COLORS.onSurface,
+  },
+  subtitle: {
+    ...TYPOGRAPHY.bodyMd,
+    color: COLORS.onSurfaceVariant,
+    marginTop: 4,
+  },
+  filterArea: {
+    marginBottom: SPACING.sm,
+  },
+  searchArea: {
+    paddingHorizontal: SPACING.md,
+    marginBottom: SPACING.md,
   },
   list: { 
-    padding: 16,
+    padding: SPACING.md,
+    paddingTop: 0,
     paddingBottom: 100,
-    gap: 12,
-    flexGrow: 1,
+    gap: SPACING.md,
   },
-  card: {
-    padding: 0,
-    marginBottom: 0,
-  },
-  cardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.gray100,
-  },
-  osNumber: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: COLORS.primary,
-    marginBottom: 2,
-  },
-  osDate: {
-    fontSize: 12,
-    color: COLORS.textSecondary,
-  },
-  cardBody: {
-    padding: 16,
-  },
-  clientName: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: COLORS.text,
-    marginBottom: 4,
-  },
-  veiculoDesc: {
-    fontSize: 14,
-    color: COLORS.textSecondary,
-  },
-  cardFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 16,
-    backgroundColor: COLORS.gray100,
-    borderBottomLeftRadius: 12,
-    borderBottomRightRadius: 12,
-  },
-  priceLabel: {
-    fontSize: 13,
-    color: COLORS.textSecondary,
-    fontWeight: '600',
-  },
-  priceValue: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: COLORS.success || '#00e676',
+  emptyText: {
+    ...TYPOGRAPHY.bodyMd,
+    color: COLORS.onSurfaceVariant,
+    textAlign: 'center',
+    marginTop: SPACING.xl,
   },
 });

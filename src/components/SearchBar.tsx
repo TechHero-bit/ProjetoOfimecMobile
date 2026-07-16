@@ -1,28 +1,35 @@
-import { COLORS, BORDER_RADIUS } from '@/src/theme';
+import { BORDER_RADIUS, COLORS, SPACING, TYPOGRAPHY } from '@/src/theme';
 import { Ionicons } from '@expo/vector-icons';
-import { StyleSheet, TextInput, View, Pressable } from 'react-native';
+import { Pressable, StyleSheet, TextInput, View } from 'react-native';
 
 type Props = {
   value: string;
   onChangeText: (text: string) => void;
   placeholder?: string;
+  rightIcon?: keyof typeof Ionicons.glyphMap;
+  onRightIconPress?: () => void;
   style?: any;
 };
 
-export default function SearchBar({ value, onChangeText, placeholder = 'Buscar...', style }: Props) {
+export default function SearchBar({ value, onChangeText, placeholder = 'Buscar...', rightIcon, onRightIconPress, style }: Props) {
   return (
     <View style={[styles.container, style]}>
-      <Ionicons name="search" size={20} color={COLORS.textSecondary} style={styles.icon} />
+      <Ionicons name="search" size={20} color={COLORS.onSurfaceVariant} style={styles.icon} />
       <TextInput
         value={value}
         onChangeText={onChangeText}
         placeholder={placeholder}
-        placeholderTextColor={COLORS.textSecondary}
+        placeholderTextColor={`${COLORS.onSurfaceVariant}80`} // 50% opacity per design
         style={styles.input}
       />
-      {value.length > 0 && (
-        <Pressable onPress={() => onChangeText('')} style={styles.clearButton}>
-          <Ionicons name="close-circle" size={18} color={COLORS.textSecondary} />
+      {value.length > 0 && !rightIcon && (
+        <Pressable onPress={() => onChangeText('')} style={styles.iconButton}>
+          <Ionicons name="close-circle" size={18} color={COLORS.onSurfaceVariant} />
+        </Pressable>
+      )}
+      {rightIcon && (
+        <Pressable onPress={onRightIconPress} style={styles.iconButton}>
+          <Ionicons name={rightIcon} size={20} color={COLORS.onSurfaceVariant} />
         </Pressable>
       )}
     </View>
@@ -33,21 +40,25 @@ const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.gray100,
-    borderRadius: BORDER_RADIUS.md,
-    paddingHorizontal: 12,
-    height: 44,
+    backgroundColor: COLORS.surfaceContainer,
+    borderTopLeftRadius: BORDER_RADIUS.md,
+    borderTopRightRadius: BORDER_RADIUS.md,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.surfaceVariant,
+    paddingHorizontal: SPACING.md,
+    height: 56,
   },
   icon: {
-    marginRight: 8,
+    marginRight: SPACING.sm,
   },
   input: {
     flex: 1,
     height: '100%',
-    color: COLORS.text,
-    fontSize: 15,
+    color: COLORS.onSurface,
+    ...TYPOGRAPHY.bodyMd,
   },
-  clearButton: {
-    padding: 4,
+  iconButton: {
+    padding: SPACING.xs,
+    marginLeft: SPACING.xs,
   },
 });

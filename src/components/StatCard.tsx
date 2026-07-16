@@ -1,4 +1,4 @@
-import { BORDER_RADIUS, COLORS } from '@/src/theme';
+import { BORDER_RADIUS, COLORS, SHADOWS, SPACING } from '@/src/theme';
 import { Ionicons } from '@expo/vector-icons';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
@@ -6,13 +6,13 @@ type Props = {
   title: string;
   value: string | number;
   icon: keyof typeof Ionicons.glyphMap;
-  iconColors: [string, string]; // [iconColor, bgColor]
+  iconColors?: [string, string]; // [iconColor, bgColor]
   onPress?: () => void;
 };
 
 export default function StatCard({ title, value, icon, iconColors, onPress }: Props) {
   const Container: any = onPress ? Pressable : View;
-  const [iconColor, bgColor] = iconColors;
+  const [iconColor = COLORS.secondaryFixed, bgColor = COLORS.secondaryFixed] = iconColors || [];
 
   return (
     <Container
@@ -35,40 +35,43 @@ export default function StatCard({ title, value, icon, iconColors, onPress }: Pr
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: COLORS.white,
-    borderRadius: BORDER_RADIUS.md,
-    padding: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
+    backgroundColor: COLORS.surfaceContainerLowest,
+    borderRadius: BORDER_RADIUS.lg,
+    padding: SPACING.md,
+    flexDirection: 'column',
+    alignItems: 'flex-start',
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: COLORS.outlineVariant,
+    ...SHADOWS.level1,
     flex: 1,
     minWidth: '45%',
+    aspectRatio: 4 / 3,
+    justifyContent: 'space-between',
   },
   pressed: {
-    opacity: 0.7,
-    backgroundColor: COLORS.gray100,
+    opacity: 0.8,
+    backgroundColor: COLORS.surfaceContainerLow,
   },
   iconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 12,
+    width: 40,
+    height: 40,
+    borderRadius: BORDER_RADIUS.md,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 12,
   },
   textContainer: {
-    flex: 1,
+    width: '100%',
   },
   value: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: COLORS.text,
+    fontSize: 24,
+    fontWeight: '700',
+    color: COLORS.onSurface,
     letterSpacing: -0.5,
   },
   title: {
     fontSize: 13,
-    color: COLORS.textSecondary,
-    marginTop: 2,
+    color: COLORS.onSurfaceVariant,
+    marginTop: SPACING.xs,
+    fontWeight: '500',
   },
 });

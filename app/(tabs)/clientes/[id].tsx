@@ -1,13 +1,13 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
+import { Alert, Keyboard, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, TouchableWithoutFeedback, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import Button from '@/src/components/Button';
+import Card from '@/src/components/Card';
 import Input from '@/src/components/Input';
 import ScreenHeader from '@/src/components/ScreenHeader';
-import Card from '@/src/components/Card';
-import { createCliente as svcCreate, getCliente as svcGet, updateCliente as svcUpdate, deleteCliente as svcDelete } from '@/src/services/cliente.service';
+import { createCliente as svcCreate, deleteCliente as svcDelete, getCliente as svcGet, updateCliente as svcUpdate } from '@/src/services/cliente.service';
 import { COLORS } from '@/src/theme';
 import type { Cliente } from '@/src/types';
 
@@ -93,10 +93,12 @@ export default function ClienteFormScreen() {
       />
       
       <KeyboardAvoidingView 
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined} 
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'} 
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 20 : 0}
         style={styles.keyboardView}
       >
-        <ScrollView contentContainerStyle={styles.container}>
+        <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+          <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
           {initialLoading ? (
             <View style={styles.loadingContainer}>
               <Button title="Carregando..." loading={true} variant="outline" />
@@ -216,7 +218,8 @@ export default function ClienteFormScreen() {
               </View>
             </>
           )}
-        </ScrollView>
+          </ScrollView>
+        </TouchableWithoutFeedback>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );

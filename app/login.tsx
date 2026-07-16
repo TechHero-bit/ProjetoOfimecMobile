@@ -1,11 +1,11 @@
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { ActivityIndicator, KeyboardAvoidingView, Platform, StyleSheet, Text, View, Image } from 'react-native';
+import { KeyboardAvoidingView, Platform, StyleSheet, Text, View } from 'react-native';
 
-import { useAuth } from '@/src/contexts/AuthContext';
-import { COLORS } from '@/src/theme';
-import Input from '@/src/components/Input';
 import Button from '@/src/components/Button';
+import Input from '@/src/components/Input';
+import { useAuth } from '@/src/contexts/AuthContext';
+import { BORDER_RADIUS, COLORS, SHADOWS, SPACING, TYPOGRAPHY } from '@/src/theme';
 
 export default function LoginScreen() {
   const { signIn, loading } = useAuth();
@@ -90,16 +90,16 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.gray100,
+    backgroundColor: COLORS.background,
   },
   content: {
     flex: 1,
     justifyContent: 'center',
-    padding: 24,
+    padding: SPACING.lg,
   },
   header: {
     alignItems: 'center',
-    marginBottom: 40,
+    marginBottom: SPACING.xl + SPACING.lg,
   },
   logoContainer: {
     width: 80,
@@ -108,62 +108,51 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.primary,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 16,
-    shadowColor: COLORS.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 6,
+    marginBottom: SPACING.lg,
+    ...SHADOWS.button,
   },
   logoText: {
     fontSize: 32,
     fontWeight: '900',
-    color: COLORS.white,
+    color: COLORS.onPrimary,
     letterSpacing: -1,
   },
   title: {
-    fontSize: 28,
-    fontWeight: '800',
-    color: COLORS.text,
-    letterSpacing: -0.5,
+    ...TYPOGRAPHY.headlineLg,
+    color: COLORS.onSurface,
   },
   subtitle: {
-    fontSize: 15,
-    color: COLORS.textSecondary,
-    marginTop: 4,
+    ...TYPOGRAPHY.bodyMd,
+    color: COLORS.onSurfaceVariant,
+    marginTop: SPACING.xs,
   },
   card: {
-    backgroundColor: COLORS.white,
-    borderRadius: 24,
-    padding: 24,
-    shadowColor: COLORS.black,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.05,
-    shadowRadius: 24,
-    elevation: 4,
+    backgroundColor: COLORS.surfaceContainerLowest,
+    borderRadius: BORDER_RADIUS.xl,
+    padding: SPACING.lg,
+    ...SHADOWS.level2,
     borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.02)',
+    borderColor: COLORS.outlineVariant,
   },
   cardTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: COLORS.text,
-    marginBottom: 20,
+    ...TYPOGRAPHY.headlineSm,
+    color: COLORS.onSurface,
+    marginBottom: SPACING.lg,
     textAlign: 'center',
   },
   errorContainer: {
-    backgroundColor: `${COLORS.danger}10`,
-    padding: 12,
-    borderRadius: 12,
-    marginBottom: 16,
+    backgroundColor: `${COLORS.error}15`,
+    padding: SPACING.md,
+    borderRadius: BORDER_RADIUS.lg,
+    marginBottom: SPACING.md,
   },
   errorText: {
-    color: COLORS.danger,
-    fontSize: 13,
-    fontWeight: '500',
+    color: COLORS.error,
+    ...TYPOGRAPHY.bodyMd,
     textAlign: 'center',
+    fontWeight: '600',
   },
   button: {
-    marginTop: 8,
+    marginTop: SPACING.md,
   },
 });
