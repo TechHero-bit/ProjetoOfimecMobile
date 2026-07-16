@@ -360,9 +360,12 @@ export default function ClienteFormScreen() {
         keyboardVerticalOffset={Platform.OS === 'ios' ? 20 : 0}
         style={styles.flex}
       >
-        <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
-          <View style={styles.flex}>
-            <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
+        <View style={styles.flex}>
+          <ScrollView 
+            contentContainerStyle={styles.container} 
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="on-drag"
+          >
               <View style={styles.titleSection}>
                 <Text style={styles.screenTitle}>{isNew ? 'Novo Cliente' : 'Editar Cliente'}</Text>
                 <Text style={styles.screenSubtitle}>
@@ -497,8 +500,7 @@ export default function ClienteFormScreen() {
                 <Text style={styles.saveBtnText}>{loading ? 'SALVANDO...' : 'SALVAR'}</Text>
               </Pressable>
             </View>
-          </View>
-        </TouchableWithoutFeedback>
+        </View>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );

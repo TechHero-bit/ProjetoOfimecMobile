@@ -1,4 +1,4 @@
-import { MaterialCommunityIcons, MaterialIcons } from '@expo/vector-icons';
+import { MaterialCommunityIcons, MaterialIcons, Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
 import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -140,7 +140,8 @@ export default function Dashboard() {
   }, [user]);
 
   const today = new Date();
-  const dateStr = today.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  const rawDateStr = today.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+  const dateStr = rawDateStr.charAt(0).toUpperCase() + rawDateStr.slice(1);
 
   // Mock chart data for weekly revenue
   const mockChartData = [
@@ -193,7 +194,10 @@ export default function Dashboard() {
             <Text style={styles.greetingTitle}>Olá, {userName}</Text>
             <Text style={styles.greetingSubtitle}>Resumo da oficina de hoje.</Text>
           </View>
-          <Text style={styles.dateText}>{dateStr}</Text>
+          <View style={styles.datePill}>
+            <Ionicons name="calendar-outline" size={14} color="#BE2528" />
+            <Text style={styles.datePillText}>{dateStr}</Text>
+          </View>
         </View>
 
         {/* ── Cards de Resumo (Bento Grid) ── */}
@@ -368,10 +372,22 @@ const styles = StyleSheet.create({
     color: COLORS.onSurfaceVariant,
     marginTop: 2,
   },
-  dateText: {
-    ...TYPOGRAPHY.labelCaps,
-    color: COLORS.onSurfaceVariant,
+  datePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#1e1f24',
+    borderRadius: 9999,
+    borderWidth: 1,
+    borderColor: '#33353a',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    gap: 6,
     marginTop: SPACING.xs,
+  },
+  datePillText: {
+    fontSize: 12,
+    color: '#e3beba',
+    fontWeight: '500',
   },
 
   // Bento Grid

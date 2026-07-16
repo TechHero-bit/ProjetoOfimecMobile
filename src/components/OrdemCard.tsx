@@ -1,7 +1,8 @@
 import { BORDER_RADIUS, COLORS, SHADOWS, SPACING, TYPOGRAPHY } from '@/src/theme';
 import { Ionicons } from '@expo/vector-icons';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View, TouchableOpacity } from 'react-native';
 import type { StatusOS } from '@/src/types';
+import { useState, useEffect } from 'react';
 
 type Props = {
   numeroOs: string;
@@ -22,29 +23,45 @@ export default function OrdemCard({
   onPress,
   style 
 }: Props) {
+  const [currentStatus, setCurrentStatus] = useState<StatusOS>(status);
+
+  useEffect(() => {
+    setCurrentStatus(status);
+  }, [status]);
+
+  const cycleStatus = () => {
+    const cycleMap: Record<string, StatusOS> = {
+      pendente: 'em_andamento',
+      em_andamento: 'concluida',
+      concluida: 'pendente',
+      cancelada: 'cancelada'
+    };
+    setCurrentStatus(cycleMap[currentStatus] || 'pendente');
+  };
+
   const formatCurrency = (value: number) => {
     return `R$ ${value.toFixed(2).replace('.', ',')}`;
   };
 
   const getStatusConfig = () => {
-    switch(status) {
+    switch(currentStatus) {
       case 'pendente':
         return { 
-          color: COLORS.statusPendente, 
-          label: 'AGUARD. PEÇAS', 
-          bg: '#4A3600' // Darker bg for the chip
+          color: '#ef4444', 
+          label: 'PENDENTE', 
+          bg: '#7f1d1d' 
         };
       case 'em_andamento':
         return { 
-          color: COLORS.statusEmAndamento, 
+          color: '#f59e0b', 
           label: 'EM ANDAMENTO', 
-          bg: '#1E3A8A' 
+          bg: '#451a03' 
         };
       case 'concluida':
         return { 
-          color: COLORS.statusConcluida, 
+          color: '#10b981', 
           label: 'PRONTO', 
-          bg: '#064E3B' 
+          bg: '#064e3b' 
         };
       case 'cancelada':
         return { 
@@ -54,9 +71,9 @@ export default function OrdemCard({
         };
       default:
         return { 
-          color: COLORS.statusPendente, 
+          color: '#ef4444', 
           label: 'PENDENTE', 
-          bg: '#4A3600' 
+          bg: '#7f1d1d' 
         };
     }
   };
@@ -78,9 +95,12 @@ export default function OrdemCard({
         <View style={styles.header}>
           <View style={styles.statusRow}>
             <Text style={styles.numero}>{numeroOs}</Text>
-            <View style={[styles.chip, { backgroundColor: statusConfig.bg }]}>
+            <TouchableOpacity 
+              style={[styles.chip, { backgroundColor: statusConfig.bg }]}
+              onPress={cycleStatus}
+            >
               <Text style={[styles.chipText, { color: statusConfig.color }]}>{statusConfig.label}</Text>
-            </View>
+            </TouchableOpacity>
           </View>
           <Ionicons name="chevron-forward" size={20} color={COLORS.onSurfaceVariant} />
         </View>
