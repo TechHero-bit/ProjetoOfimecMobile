@@ -1,4 +1,4 @@
-import { BORDER_RADIUS, SPACING } from '@/src/theme';
+import { BORDER_RADIUS, COLORS, SPACING } from '@/src/theme';
 import type { StatusOS } from '@/src/types';
 import { StyleSheet, Text, View } from 'react-native';
 

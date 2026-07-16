@@ -1,15 +1,256 @@
+import { MaterialIcons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Alert, Keyboard, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, TouchableWithoutFeedback, View } from 'react-native';
+import {
+  Alert,
+  FlatList,
+  Keyboard,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableWithoutFeedback,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import Button from '@/src/components/Button';
-import Card from '@/src/components/Card';
-import Input from '@/src/components/Input';
-import ScreenHeader from '@/src/components/ScreenHeader';
-import { createCliente as svcCreate, deleteCliente as svcDelete, getCliente as svcGet, updateCliente as svcUpdate } from '@/src/services/cliente.service';
-import { COLORS } from '@/src/theme';
+import {
+  createCliente as svcCreate,
+  deleteCliente as svcDelete,
+  getCliente as svcGet,
+  updateCliente as svcUpdate,
+} from '@/src/services/cliente.service';
+import { BORDER_RADIUS, COLORS, SHADOWS, SPACING, TYPOGRAPHY } from '@/src/theme';
 import type { Cliente } from '@/src/types';
+
+// ─── Styled Input ────────────────────────────────────────────
+function DarkInput({
+  label,
+  value,
+  onChangeText,
+  placeholder,
+  keyboardType,
+  autoCapitalize,
+}: {
+  label: string;
+  value?: string;
+  onChangeText: (t: string) => void;
+  placeholder?: string;
+  keyboardType?: any;
+  autoCapitalize?: any;
+}) {
+  const [focused, setFocused] = useState(false);
+  return (
+    <View style={inputStyles.wrapper}>
+      <Text style={inputStyles.label}>{label}</Text>
+      <TextInput
+        style={[inputStyles.input, focused && inputStyles.inputFocused]}
+        value={value}
+        onChangeText={onChangeText}
+        placeholder={placeholder}
+        placeholderTextColor={COLORS.onSecondaryFixedVariant}
+        keyboardType={keyboardType}
+        autoCapitalize={autoCapitalize}
+        onFocus={() => setFocused(true)}
+        onBlur={() => setFocused(false)}
+      />
+    </View>
+  );
+}
+
+// ─── Search Input ────────────────────────────────────────────
+function SearchInput({
+  label,
+  value,
+  onChangeText,
+  placeholder,
+  onSearch,
+}: {
+  label: string;
+  value?: string;
+  onChangeText: (t: string) => void;
+  placeholder?: string;
+  onSearch: () => void;
+}) {
+  const [focused, setFocused] = useState(false);
+  return (
+    <View style={inputStyles.wrapper}>
+      <Text style={inputStyles.label}>{label}</Text>
+      <View style={{ flexDirection: 'row', gap: SPACING.sm }}>
+        <TextInput
+          style={[inputStyles.input, { flex: 1 }, focused && inputStyles.inputFocused]}
+          value={value}
+          onChangeText={onChangeText}
+          placeholder={placeholder}
+          placeholderTextColor={COLORS.onSecondaryFixedVariant}
+          keyboardType="numeric"
+          onFocus={() => setFocused(true)}
+          onBlur={() => setFocused(false)}
+        />
+        <Pressable
+          style={({ pressed }) => [inputStyles.searchBtn, pressed && inputStyles.searchBtnPressed]}
+          onPress={onSearch}
+        >
+          <MaterialIcons name="search" size={18} color={COLORS.onSurface} />
+          <Text style={inputStyles.searchBtnText}>BUSCAR</Text>
+        </Pressable>
+      </View>
+    </View>
+  );
+}
+
+const inputStyles = StyleSheet.create({
+  wrapper: { gap: SPACING.xs },
+  label: { ...TYPOGRAPHY.labelCaps, color: COLORS.onSurfaceVariant, textTransform: 'uppercase' },
+  input: {
+    backgroundColor: COLORS.inputBg,
+    borderBottomWidth: 2,
+    borderBottomColor: COLORS.inputBorder,
+    borderTopLeftRadius: BORDER_RADIUS.default,
+    borderTopRightRadius: BORDER_RADIUS.default,
+    color: COLORS.onSurface,
+    ...TYPOGRAPHY.bodyMd,
+    height: 48,
+    paddingHorizontal: SPACING.md,
+  },
+  inputFocused: {
+    borderBottomColor: COLORS.primaryContainer,
+  },
+  searchBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: SPACING.xs,
+    height: 48,
+    paddingHorizontal: SPACING.md,
+    backgroundColor: COLORS.surfaceVariant,
+    borderRadius: BORDER_RADIUS.default,
+    borderWidth: 1,
+    borderColor: COLORS.inputBorder,
+  },
+  searchBtnPressed: {
+    backgroundColor: COLORS.surfaceBright,
+  },
+  searchBtnText: {
+    ...TYPOGRAPHY.labelCaps,
+    color: COLORS.onSurface,
+  },
+});
+
+// ─── Dropdown Select ─────────────────────────────────────────
+function DropdownSelect({
+  label,
+  value,
+  options,
+  onSelect,
+}: {
+  label: string;
+  value: string;
+  options: { label: string; value: string }[];
+  onSelect: (val: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const selectedLabel = options.find((o) => o.value === value)?.label || value;
+
+  return (
+    <View style={inputStyles.wrapper}>
+      <Text style={inputStyles.label}>{label}</Text>
+      <Pressable
+        style={[inputStyles.input, { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }]}
+        onPress={() => setOpen(true)}
+      >
+        <Text style={{ color: value ? COLORS.onSurface : COLORS.onSecondaryFixedVariant, ...TYPOGRAPHY.bodyMd }}>
+          {selectedLabel || 'UF'}
+        </Text>
+        <MaterialIcons name="arrow-drop-down" size={20} color={COLORS.onSurfaceVariant} />
+      </Pressable>
+
+      <Modal visible={open} transparent animationType="fade">
+        <Pressable style={dropdownStyles.overlay} onPress={() => setOpen(false)}>
+          <View style={dropdownStyles.sheet}>
+            <Text style={dropdownStyles.sheetTitle}>{label}</Text>
+            <FlatList
+              data={options}
+              keyExtractor={(i) => i.value}
+              renderItem={({ item }) => (
+                <Pressable
+                  style={[dropdownStyles.option, item.value === value && dropdownStyles.optionActive]}
+                  onPress={() => {
+                    onSelect(item.value);
+                    setOpen(false);
+                  }}
+                >
+                  <Text
+                    style={[dropdownStyles.optionText, item.value === value && dropdownStyles.optionTextActive]}
+                  >
+                    {item.label}
+                  </Text>
+                  {item.value === value && (
+                    <MaterialIcons name="check" size={20} color={COLORS.primaryContainer} />
+                  )}
+                </Pressable>
+              )}
+            />
+          </View>
+        </Pressable>
+      </Modal>
+    </View>
+  );
+}
+
+const dropdownStyles = StyleSheet.create({
+  overlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    justifyContent: 'center',
+    paddingHorizontal: SPACING.xl,
+  },
+  sheet: {
+    backgroundColor: COLORS.surfaceContainerHigh,
+    borderRadius: BORDER_RADIUS.xl,
+    padding: SPACING.md,
+    maxHeight: 300,
+  },
+  sheetTitle: {
+    ...TYPOGRAPHY.headlineSm,
+    color: COLORS.onSurface,
+    marginBottom: SPACING.md,
+  },
+  option: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: SPACING.md,
+    paddingHorizontal: SPACING.sm,
+    borderRadius: BORDER_RADIUS.md,
+  },
+  optionActive: {
+    backgroundColor: `${COLORS.primaryContainer}20`,
+  },
+  optionText: {
+    ...TYPOGRAPHY.bodyLg,
+    color: COLORS.onSurface,
+  },
+  optionTextActive: {
+    color: COLORS.primaryContainer,
+    fontWeight: '600',
+  },
+});
+
+// ─── Main Screen ─────────────────────────────────────────────
+const UF_OPTIONS = [
+  { label: 'SP', value: 'SP' },
+  { label: 'RJ', value: 'RJ' },
+  { label: 'MG', value: 'MG' },
+  { label: 'RS', value: 'RS' },
+  { label: 'PR', value: 'PR' },
+  { label: 'SC', value: 'SC' },
+  { label: 'BA', value: 'BA' },
+];
 
 export default function ClienteFormScreen() {
   const { id } = useLocalSearchParams();
@@ -18,8 +259,15 @@ export default function ClienteFormScreen() {
 
   const [loading, setLoading] = useState(false);
   const [initialLoading, setInitialLoading] = useState(!isNew);
-  const [form, setForm] = useState<Partial<Cliente>>({ 
-    nome: '', cpf: '', telefone: '', email: '', endereco: '', cidade: '', estado: '', cep: '' 
+  const [form, setForm] = useState<Partial<Cliente>>({
+    nome: '',
+    cpf: '',
+    telefone: '',
+    email: '',
+    endereco: '',
+    cidade: '',
+    estado: '',
+    cep: '',
   });
 
   useEffect(() => {
@@ -61,14 +309,18 @@ export default function ClienteFormScreen() {
     }
   }
 
+  function handleBuscaCep() {
+    Alert.alert('Buscar CEP', 'Funcionalidade de busca de CEP a ser implementada.');
+  }
+
   function confirmDelete() {
     Alert.alert(
       'Excluir Cliente',
       'Tem certeza que deseja excluir este cliente? Esta ação não pode ser desfeita.',
       [
         { text: 'Cancelar', style: 'cancel' },
-        { 
-          text: 'Excluir', 
+        {
+          text: 'Excluir',
           style: 'destructive',
           onPress: async () => {
             try {
@@ -79,185 +331,317 @@ export default function ClienteFormScreen() {
               Alert.alert('Erro', 'Não foi possível excluir o cliente. Verifique se ele possui veículos ou ordens de serviço.');
               setLoading(false);
             }
-          }
-        }
+          },
+        },
       ]
     );
   }
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
-      <ScreenHeader 
-        title={isNew ? 'Novo Cliente' : 'Editar Cliente'} 
-        subtitle={isNew ? 'Cadastre um novo cliente' : `ID: ${id}`}
-      />
-      
-      <KeyboardAvoidingView 
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'} 
+      {/* ── TopAppBar ── */}
+      <View style={styles.header}>
+        <View style={styles.headerLeft}>
+          <Pressable
+            style={({ pressed }) => [styles.backBtn, pressed && styles.backBtnPressed]}
+            onPress={() => router.back()}
+          >
+            <MaterialIcons name="arrow-back" size={24} color={COLORS.primary} />
+          </Pressable>
+          <Text style={styles.headerTitle}>OficeMec</Text>
+        </View>
+        <View style={styles.headerAvatar}>
+          <MaterialIcons name="person" size={20} color={COLORS.onSurfaceVariant} />
+        </View>
+      </View>
+
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 20 : 0}
-        style={styles.keyboardView}
+        style={styles.flex}
       >
         <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
-          <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
-          {initialLoading ? (
-            <View style={styles.loadingContainer}>
-              <Button title="Carregando..." loading={true} variant="outline" />
-            </View>
-          ) : (
-            <>
-              <Card title="Dados Pessoais" style={styles.sectionCard}>
-                <Input 
-                  label="Nome Completo *" 
-                  icon="person-outline"
-                  placeholder="Ex: João da Silva" 
-                  autoCapitalize="words"
-                  value={form.nome} 
-                  onChangeText={(t) => setForm((s) => ({ ...s, nome: t }))} 
-                />
-                
-                <View style={styles.row}>
-                  <View style={styles.col}>
-                    <Input 
-                      label="CPF" 
-                      icon="card-outline"
-                      placeholder="000.000.000-00" 
-                      keyboardType="numeric"
-                      value={form.cpf} 
-                      onChangeText={(t) => setForm((s) => ({ ...s, cpf: t }))} 
-                    />
-                  </View>
-                  <View style={styles.col}>
-                    <Input 
-                      label="Telefone *" 
-                      icon="call-outline"
-                      placeholder="(00) 00000-0000" 
-                      keyboardType="phone-pad"
-                      value={form.telefone} 
-                      onChangeText={(t) => setForm((s) => ({ ...s, telefone: t }))} 
-                    />
-                  </View>
-                </View>
-                
-                <Input 
-                  label="E-mail" 
-                  icon="mail-outline"
-                  placeholder="joao@exemplo.com" 
-                  keyboardType="email-address"
-                  autoCapitalize="none"
-                  value={form.email} 
-                  onChangeText={(t) => setForm((s) => ({ ...s, email: t }))} 
-                />
-              </Card>
-
-              <Card title="Endereço" style={styles.sectionCard}>
-                <Input 
-                  label="CEP" 
-                  icon="location-outline"
-                  placeholder="00000-000" 
-                  keyboardType="numeric"
-                  value={form.cep} 
-                  onChangeText={(t) => setForm((s) => ({ ...s, cep: t }))} 
-                />
-                
-                <Input 
-                  label="Logradouro" 
-                  icon="home-outline"
-                  placeholder="Rua, Avenida, Número, Complemento" 
-                  autoCapitalize="sentences"
-                  value={form.endereco} 
-                  onChangeText={(t) => setForm((s) => ({ ...s, endereco: t }))} 
-                />
-
-                <View style={styles.row}>
-                  <View style={[styles.col, { flex: 2 }]}>
-                    <Input 
-                      label="Cidade" 
-                      placeholder="Nome da cidade" 
-                      value={form.cidade} 
-                      onChangeText={(t) => setForm((s) => ({ ...s, cidade: t }))} 
-                    />
-                  </View>
-                  <View style={[styles.col, { flex: 1 }]}>
-                    <Input 
-                      label="UF" 
-                      placeholder="EX: SP" 
-                      autoCapitalize="characters"
-                      value={form.estado} 
-                      onChangeText={(t) => setForm((s) => ({ ...s, estado: t }))} 
-                    />
-                  </View>
-                </View>
-              </Card>
-
-              <View style={styles.actions}>
-                <Button 
-                  title="Salvar Cliente" 
-                  icon="save-outline"
-                  onPress={handleSave} 
-                  loading={loading} 
-                />
-                
-                {!isNew && (
-                  <Button 
-                    title="Excluir Cliente" 
-                    icon="trash-outline"
-                    variant="danger"
-                    onPress={confirmDelete} 
-                    disabled={loading}
-                    style={styles.deleteBtn}
-                  />
-                )}
-                
-                <Button 
-                  title="Cancelar" 
-                  variant="outline"
-                  onPress={() => router.back()} 
-                  disabled={loading}
-                  style={styles.cancelBtn}
-                />
+          <View style={styles.flex}>
+            <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
+              <View style={styles.titleSection}>
+                <Text style={styles.screenTitle}>{isNew ? 'Novo Cliente' : 'Editar Cliente'}</Text>
+                <Text style={styles.screenSubtitle}>
+                  {isNew ? 'Preencha os dados abaixo para cadastrar um novo cliente no sistema.' : `ID: ${id}`}
+                </Text>
               </View>
-            </>
-          )}
-          </ScrollView>
+
+              {initialLoading ? (
+                <View style={styles.loadingContainer}>
+                  <Text style={styles.loadingText}>Carregando...</Text>
+                </View>
+              ) : (
+                <View style={styles.formContainer}>
+                  {/* ── Informações Pessoais ── */}
+                  <View style={styles.sectionCard}>
+                    <View style={styles.sectionHeader}>
+                      <MaterialIcons name="badge" size={16} color={COLORS.primary} />
+                      <Text style={styles.sectionTitle}>INFORMAÇÕES PESSOAIS</Text>
+                    </View>
+
+                    <View style={styles.formGrid}>
+                      <View style={styles.gridFull}>
+                        <DarkInput
+                          label="NOME COMPLETO"
+                          placeholder="Ex: João da Silva"
+                          value={form.nome}
+                          onChangeText={(t) => setForm((s) => ({ ...s, nome: t }))}
+                          autoCapitalize="words"
+                        />
+                      </View>
+                      <View style={styles.gridHalf}>
+                        <DarkInput
+                          label="CPF / CNPJ"
+                          placeholder="000.000.000-00"
+                          value={form.cpf}
+                          onChangeText={(t) => setForm((s) => ({ ...s, cpf: t }))}
+                          keyboardType="numeric"
+                        />
+                      </View>
+                      <View style={styles.gridHalf}>
+                        <DarkInput
+                          label="TELEFONE"
+                          placeholder="(00) 00000-0000"
+                          value={form.telefone}
+                          onChangeText={(t) => setForm((s) => ({ ...s, telefone: t }))}
+                          keyboardType="phone-pad"
+                        />
+                      </View>
+                      <View style={styles.gridFull}>
+                        <DarkInput
+                          label="E-MAIL"
+                          placeholder="email@exemplo.com.br"
+                          value={form.email}
+                          onChangeText={(t) => setForm((s) => ({ ...s, email: t }))}
+                          keyboardType="email-address"
+                          autoCapitalize="none"
+                        />
+                      </View>
+                    </View>
+                  </View>
+
+                  {/* ── Endereço ── */}
+                  <View style={styles.sectionCard}>
+                    <View style={styles.sectionHeader}>
+                      <MaterialIcons name="pin-drop" size={16} color={COLORS.primary} />
+                      <Text style={styles.sectionTitle}>ENDEREÇO</Text>
+                    </View>
+
+                    <View style={styles.formGrid}>
+                      <View style={styles.gridFull}>
+                        <SearchInput
+                          label="CEP"
+                          placeholder="00000-000"
+                          value={form.cep}
+                          onChangeText={(t) => setForm((s) => ({ ...s, cep: t }))}
+                          onSearch={handleBuscaCep}
+                        />
+                      </View>
+                      <View style={styles.gridFull}>
+                        <DarkInput
+                          label="LOGRADOURO"
+                          placeholder="Rua, Avenida, etc..."
+                          value={form.endereco}
+                          onChangeText={(t) => setForm((s) => ({ ...s, endereco: t }))}
+                          autoCapitalize="sentences"
+                        />
+                      </View>
+                      <View style={[styles.gridHalf, { flexGrow: 2 }]}>
+                        <DarkInput
+                          label="CIDADE"
+                          placeholder="Cidade"
+                          value={form.cidade}
+                          onChangeText={(t) => setForm((s) => ({ ...s, cidade: t }))}
+                          autoCapitalize="words"
+                        />
+                      </View>
+                      <View style={[styles.gridHalf, { flexGrow: 1 }]}>
+                        <DropdownSelect
+                          label="UF"
+                          value={form.estado || ''}
+                          options={UF_OPTIONS}
+                          onSelect={(v) => setForm((s) => ({ ...s, estado: v }))}
+                        />
+                      </View>
+                    </View>
+                  </View>
+                  
+                  {!isNew && (
+                    <View style={{ marginTop: SPACING.md }}>
+                      <Pressable
+                        style={({ pressed }) => [styles.btnDangerOutline, pressed && { backgroundColor: COLORS.surfaceVariant }]}
+                        onPress={confirmDelete}
+                        disabled={loading}
+                      >
+                        <MaterialIcons name="delete" size={20} color={COLORS.error} />
+                        <Text style={styles.btnDangerOutlineText}>Excluir Cliente</Text>
+                      </Pressable>
+                    </View>
+                  )}
+                </View>
+              )}
+            </ScrollView>
+
+            {/* ── Barra de Ação Fixa ── */}
+            <View style={styles.bottomBar}>
+              <Pressable
+                style={({ pressed }) => [styles.saveBtn, pressed && { opacity: 0.85 }]}
+                onPress={handleSave}
+                disabled={loading}
+              >
+                <MaterialIcons name="save" size={20} color={COLORS.white} />
+                <Text style={styles.saveBtnText}>{loading ? 'SALVANDO...' : 'SALVAR'}</Text>
+              </Pressable>
+            </View>
+          </View>
         </TouchableWithoutFeedback>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
 
+// ─── Styles ──────────────────────────────────────────────────
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: COLORS.white },
-  keyboardView: { flex: 1 },
-  container: { 
-    padding: 20, 
-    backgroundColor: COLORS.gray100, 
-    gap: 20,
-    paddingBottom: 40,
+  safeArea: { flex: 1, backgroundColor: COLORS.background },
+  flex: { flex: 1 },
+
+  // Header
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: SPACING.margin,
+    height: 64,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.surfaceVariant,
+    backgroundColor: COLORS.surface,
   },
-  loadingContainer: {
-    flex: 1,
-    minHeight: 200,
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.md,
+  },
+  backBtn: {
+    padding: SPACING.xs,
+    marginLeft: -SPACING.xs,
+    borderRadius: 999,
+  },
+  backBtnPressed: {
+    backgroundColor: COLORS.surfaceContainerHigh,
+  },
+  headerTitle: {
+    ...TYPOGRAPHY.headlineMd,
+    color: COLORS.primary,
+  },
+  headerAvatar: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: COLORS.surfaceVariant,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  sectionCard: {
-    padding: 20,
+
+  // Main Content
+  container: {
+    padding: SPACING.margin,
+    paddingTop: 84, // Extra top padding to match design
+    paddingBottom: 100, // Room for bottom bar
   },
-  row: {
-    flexDirection: 'row',
-    gap: 12,
+  titleSection: {
+    marginBottom: SPACING.lg,
   },
-  col: {
-    flex: 1,
+  screenTitle: {
+    ...TYPOGRAPHY.headlineSm,
+    color: COLORS.onSurface,
   },
-  actions: {
-    gap: 12,
-    marginTop: 8,
-  },
-  deleteBtn: {
-    marginTop: 8,
-  },
-  cancelBtn: {
+  screenSubtitle: {
+    ...TYPOGRAPHY.bodyMd,
+    color: COLORS.onSurfaceVariant,
     marginTop: 4,
+  },
+
+  loadingContainer: { minHeight: 200, alignItems: 'center', justifyContent: 'center' },
+  loadingText: { ...TYPOGRAPHY.bodyLg, color: COLORS.onSurfaceVariant },
+
+  formContainer: {
+    gap: SPACING.lg,
+  },
+  sectionCard: {
+    backgroundColor: COLORS.surfaceContainer,
+    borderRadius: BORDER_RADIUS.xl,
+    borderWidth: 1,
+    borderColor: COLORS.surfaceVariant,
+    padding: SPACING.md,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+    marginBottom: SPACING.md,
+  },
+  sectionTitle: {
+    ...TYPOGRAPHY.labelCaps,
+    color: COLORS.primary,
+  },
+  formGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: SPACING.md,
+  },
+  gridHalf: {
+    width: '47%',
+    flexGrow: 1,
+  },
+  gridFull: {
+    width: '100%',
+  },
+
+  btnDangerOutline: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: SPACING.sm,
+    paddingVertical: SPACING.md,
+    borderRadius: BORDER_RADIUS.default,
+    borderWidth: 1,
+    borderColor: COLORS.error,
+  },
+  btnDangerOutlineText: {
+    ...TYPOGRAPHY.bodyLg,
+    color: COLORS.error,
+    fontWeight: '600',
+  },
+
+  // Bottom Fixed Bar
+  bottomBar: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: COLORS.surfaceContainer,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.inputBorder,
+    padding: SPACING.margin,
+    paddingBottom: Platform.OS === 'ios' ? 34 : SPACING.margin,
+  },
+  saveBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: SPACING.sm,
+    backgroundColor: COLORS.primaryContainer,
+    height: 48,
+    borderRadius: BORDER_RADIUS.default,
+  },
+  saveBtnText: {
+    color: COLORS.white,
+    fontSize: 14,
+    fontWeight: '700',
+    letterSpacing: 0.5,
   },
 });

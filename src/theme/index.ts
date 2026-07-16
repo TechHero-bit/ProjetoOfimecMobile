@@ -70,6 +70,14 @@ export const COLORS = {
   statusConcluida: '#10B981',
   statusCancelada: '#EF4444',
 
+  // Web-matched UI tokens
+  successGreen: '#4ade80',
+  successGreenBg: '#1A2E1A',
+  warningYellow: '#facc15',
+  warningYellowBg: '#2E2E1A',
+  inputBg: '#2C2C2E',
+  inputBorder: '#3A3A3C',
+
   // Legacy compatibility (re-mapped to new dark colors)
   white: '#FFFFFF',
   black: '#000000',
@@ -159,6 +167,7 @@ export const SPACING = {
   xs: 4,
   sm: 8,
   md: 16,
+  margin: 20,
   lg: 24,
   xl: 32,
   xxl: 48,

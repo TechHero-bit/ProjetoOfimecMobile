@@ -1,19 +1,146 @@
-import { Ionicons } from '@expo/vector-icons';
+import { MaterialIcons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Alert, Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TouchableWithoutFeedback, View } from 'react-native';
+import {
+  Alert,
+  FlatList,
+  Keyboard,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableWithoutFeedback,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import Button from '@/src/components/Button';
-import Card from '@/src/components/Card';
-import Input from '@/src/components/Input';
-import ScreenHeader from '@/src/components/ScreenHeader';
 import { listClientes } from '@/src/services/cliente.service';
-import { createOrdemServico as svcCreate, deleteOrdemServico as svcDelete, getOrdemServico as svcGet, updateOrdemServico as svcUpdate } from '@/src/services/ordem-servico.service';
+import {
+  createOrdemServico as svcCreate,
+  deleteOrdemServico as svcDelete,
+  getOrdemServico as svcGet,
+  updateOrdemServico as svcUpdate,
+} from '@/src/services/ordem-servico.service';
 import { listVeiculos } from '@/src/services/veiculo.service';
-import { COLORS } from '@/src/theme';
+import { BORDER_RADIUS, COLORS, SHADOWS, SPACING, TYPOGRAPHY } from '@/src/theme';
 import type { Cliente, OrdemServico, ServicoItem, StatusOS, Veiculo } from '@/src/types';
 
+// ─── Styled Input ────────────────────────────────────────────
+function DarkInput({
+  label,
+  value,
+  onChangeText,
+  placeholder,
+  keyboardType,
+  autoCapitalize,
+}: {
+  label?: string;
+  value?: string;
+  onChangeText: (t: string) => void;
+  placeholder?: string;
+  keyboardType?: any;
+  autoCapitalize?: any;
+}) {
+  const [focused, setFocused] = useState(false);
+  return (
+    <View style={inputStyles.wrapper}>
+      {label && <Text style={inputStyles.label}>{label}</Text>}
+      <TextInput
+        style={[inputStyles.input, focused && inputStyles.inputFocused]}
+        value={value}
+        onChangeText={onChangeText}
+        placeholder={placeholder}
+        placeholderTextColor={COLORS.onSecondaryFixedVariant}
+        keyboardType={keyboardType}
+        autoCapitalize={autoCapitalize}
+        onFocus={() => setFocused(true)}
+        onBlur={() => setFocused(false)}
+      />
+    </View>
+  );
+}
+
+const inputStyles = StyleSheet.create({
+  wrapper: { gap: SPACING.xs },
+  label: { ...TYPOGRAPHY.labelCaps, color: COLORS.onSurfaceVariant, textTransform: 'uppercase' },
+  input: {
+    backgroundColor: COLORS.inputBg,
+    borderBottomWidth: 2,
+    borderBottomColor: COLORS.inputBorder,
+    borderTopLeftRadius: BORDER_RADIUS.default,
+    borderTopRightRadius: BORDER_RADIUS.default,
+    color: COLORS.onSurface,
+    ...TYPOGRAPHY.bodyMd,
+    height: 48,
+    paddingHorizontal: SPACING.md,
+  },
+  inputFocused: {
+    borderBottomColor: COLORS.primaryContainer,
+  },
+});
+
+// ─── Status Grid Option ──────────────────────────────────────
+function StatusGridOption({
+  label,
+  value,
+  icon,
+  currentValue,
+  activeColor,
+  activeBg,
+  onSelect,
+}: {
+  label: string;
+  value: StatusOS;
+  icon: keyof typeof MaterialIcons.glyphMap;
+  currentValue: StatusOS;
+  activeColor: string;
+  activeBg: string;
+  onSelect: (v: StatusOS) => void;
+}) {
+  const isSelected = value === currentValue;
+  return (
+    <Pressable
+      style={[
+        statusStyles.option,
+        isSelected && { borderColor: activeColor, backgroundColor: activeBg },
+      ]}
+      onPress={() => onSelect(value)}
+    >
+      <MaterialIcons
+        name={icon}
+        size={24}
+        color={isSelected ? activeColor : COLORS.onSurfaceVariant}
+      />
+      <Text style={[statusStyles.text, isSelected && { color: activeColor, fontWeight: '700' }]}>
+        {label}
+      </Text>
+    </Pressable>
+  );
+}
+
+const statusStyles = StyleSheet.create({
+  option: {
+    width: '48%',
+    backgroundColor: COLORS.surfaceContainerHigh,
+    borderRadius: BORDER_RADIUS.md,
+    borderWidth: 1,
+    borderColor: COLORS.surfaceVariant,
+    padding: SPACING.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+  },
+  text: {
+    ...TYPOGRAPHY.bodyMd,
+    color: COLORS.onSurface,
+  },
+});
+
+// ─── Main Screen ─────────────────────────────────────────────
 export default function OrdemFormScreen() {
   const { id } = useLocalSearchParams();
   const router = useRouter();
@@ -23,23 +150,25 @@ export default function OrdemFormScreen() {
   const [initialLoading, setInitialLoading] = useState(!isNew);
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [veiculos, setVeiculos] = useState<Veiculo[]>([]);
-  
-  // Lista de itens de serviço temporária para a UI
+
   const [itensServico, setItensServico] = useState<Partial<ServicoItem>[]>([]);
   const [novoItemDesc, setNovoItemDesc] = useState('');
+  const [novoItemQtd, setNovoItemQtd] = useState('1');
   const [novoItemValor, setNovoItemValor] = useState('');
 
-  const [form, setForm] = useState<Partial<OrdemServico>>({ 
-    clienteId: undefined, 
+  const [desconto, setDesconto] = useState(0);
+
+  const [form, setForm] = useState<Partial<OrdemServico>>({
+    clienteId: undefined,
     veiculoId: undefined,
     status: 'pendente',
     numeroOs: isNew ? `OS-${new Date().getTime().toString().slice(-6)}` : '',
     valorTotal: 0,
-    valorPago: 0
+    valorPago: 0,
+    descricaoProblema: '',
   });
 
   useEffect(() => {
-    // Carregar dados auxiliares
     Promise.all([listClientes(), listVeiculos()])
       .then(([clientesData, veiculosData]) => {
         setClientes(clientesData);
@@ -54,8 +183,6 @@ export default function OrdemFormScreen() {
         .then((data) => {
           if (data) {
             setForm(data);
-            // Simular carga de itens (no db real deveria vir no get)
-            // Se houvesse itens na resposta da API
           }
         })
         .catch(() => {
@@ -66,42 +193,43 @@ export default function OrdemFormScreen() {
     }
   }, [id, isNew, router]);
 
-  const veiculosDoCliente = form.clienteId 
-    ? veiculos.filter(v => v.clienteId === form.clienteId)
-    : [];
+  const veiculosDoCliente = form.clienteId ? veiculos.filter((v) => v.clienteId === form.clienteId) : [];
+  const clienteSelecionado = clientes.find((c) => c.id === form.clienteId);
+  const veiculoSelecionado = veiculos.find((v) => v.id === form.veiculoId);
+
+  // Recalculate totals
+  const subtotal = itensServico.reduce((sum, item) => sum + (item.valor || 0), 0);
+  const totalGeral = Math.max(0, subtotal - desconto);
+
+  useEffect(() => {
+    setForm((prev) => ({ ...prev, valorTotal: totalGeral }));
+  }, [totalGeral]);
 
   const handleAddItem = () => {
     if (!novoItemDesc || !novoItemValor) return;
-    
+
     const valorNum = parseFloat(novoItemValor.replace(',', '.'));
+    const qtdNum = parseInt(novoItemQtd) || 1;
     if (isNaN(valorNum)) {
       Alert.alert('Atenção', 'Valor inválido');
       return;
     }
 
     const newItem: Partial<ServicoItem> = {
-      descricao: novoItemDesc,
-      valor: valorNum,
+      descricao: `${qtdNum}x ${novoItemDesc}`,
+      valor: valorNum * qtdNum,
     };
 
-    const newItensList = [...itensServico, newItem];
-    setItensServico(newItensList);
+    setItensServico([...itensServico, newItem]);
     setNovoItemDesc('');
+    setNovoItemQtd('1');
     setNovoItemValor('');
-    
-    // Atualiza valor total
-    const total = newItensList.reduce((sum, item) => sum + (item.valor || 0), 0);
-    setForm(prev => ({ ...prev, valorTotal: total }));
   };
 
   const handleRemoveItem = (index: number) => {
-    const newItensList = [...itensServico];
-    newItensList.splice(index, 1);
-    setItensServico(newItensList);
-    
-    // Atualiza valor total
-    const total = newItensList.reduce((sum, item) => sum + (item.valor || 0), 0);
-    setForm(prev => ({ ...prev, valorTotal: total }));
+    const newList = [...itensServico];
+    newList.splice(index, 1);
+    setItensServico(newList);
   };
 
   async function handleSave() {
@@ -113,7 +241,7 @@ export default function OrdemFormScreen() {
     setLoading(true);
     try {
       if (isNew) {
-        await svcCreate(form as any); // Simplificado para o escopo
+        await svcCreate(form as any);
         Alert.alert('Sucesso', 'Ordem criada com sucesso!');
       } else {
         await svcUpdate(Number(id), form as any);
@@ -127,391 +255,609 @@ export default function OrdemFormScreen() {
     }
   }
 
-  function confirmDelete() {
-    Alert.alert(
-      'Excluir Ordem de Serviço',
-      'Tem certeza que deseja excluir esta OS? Esta ação não pode ser desfeita.',
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        { 
-          text: 'Excluir', 
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              setLoading(true);
-              await svcDelete(Number(id));
-              router.back();
-            } catch (err) {
-              Alert.alert('Erro', 'Não foi possível excluir a OS.');
-              setLoading(false);
-            }
-          }
-        }
-      ]
-    );
-  }
-
-  const formatCurrency = (value?: number) => {
-    if (value === undefined || value === null) return 'R$ 0,00';
-    return `R$ ${value.toFixed(2).replace('.', ',')}`;
+  const formatCurrency = (value: number) => {
+    return `R$ ${value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   };
 
-  const STATUS_OPTIONS: { value: StatusOS; label: string; color: string }[] = [
-    { value: 'pendente', label: 'Pendente', color: '#ffab40' },
-    { value: 'em_andamento', label: 'Em Andamento', color: '#40c4ff' },
-    { value: 'concluida', label: 'Concluída', color: '#00e676' },
-    { value: 'cancelada', label: 'Cancelada', color: '#ff5252' },
-  ];
+  // Modal states
+  const [clientModalOpen, setClientModalOpen] = useState(false);
+  const [vehicleModalOpen, setVehicleModalOpen] = useState(false);
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={['top']}>
-      <ScreenHeader 
-        title={isNew ? 'Nova Ordem' : 'Editar Ordem'} 
-        subtitle={form.numeroOs || `ID: ${id}`}
-      />
-      
-      <KeyboardAvoidingView 
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'} 
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 20 : 0}
-        style={styles.keyboardView}
-      >
-        <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
-          <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
-          {initialLoading ? (
-            <View style={styles.loadingContainer}>
-              <Button title="Carregando..." loading={true} variant="outline" />
-            </View>
-          ) : (
-            <>
-              <Card title="Status" style={styles.sectionCard}>
-                <View style={styles.statusGrid}>
-                  {STATUS_OPTIONS.map(opt => (
-                    <Pressable 
-                      key={opt.value}
-                      style={[
-                        styles.statusOption,
-                        form.status === opt.value && { borderColor: opt.color, backgroundColor: `${opt.color}15` }
-                      ]}
-                      onPress={() => setForm(s => ({ ...s, status: opt.value }))}
-                    >
-                      <View style={[styles.statusDot, { backgroundColor: opt.color }]} />
-                      <Text style={[
-                        styles.statusText,
-                        form.status === opt.value && { color: opt.color, fontWeight: '700' }
-                      ]}>{opt.label}</Text>
-                    </Pressable>
-                  ))}
+    <View style={styles.root}>
+      <SafeAreaView style={styles.safeArea} edges={['top']}>
+        {/* ── Header ── */}
+        <View style={styles.header}>
+          <Pressable
+            style={({ pressed }) => [styles.backBtn, pressed && { opacity: 0.7 }]}
+            onPress={() => router.back()}
+          >
+            <MaterialIcons name="arrow-back" size={24} color={COLORS.onSurfaceVariant} />
+          </Pressable>
+          <View style={styles.headerTitleContainer}>
+            <Text style={styles.headerTitle}>{isNew ? 'Nova Ordem de Serviço' : 'Editar Ordem de Serviço'}</Text>
+            <Text style={styles.headerSubtitle}>{form.numeroOs || `ID: ${id}`} • Em rascunho</Text>
+          </View>
+        </View>
+
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 20 : 0}
+          style={styles.flex}
+        >
+          <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+            <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
+              {initialLoading ? (
+                <View style={styles.loadingContainer}>
+                  <Text style={styles.loadingText}>Carregando...</Text>
                 </View>
-              </Card>
+              ) : (
+                <>
+                  {/* ── Status Grid ── */}
+                  <View style={styles.sectionContainer}>
+                    <Text style={styles.sectionTitle}>STATUS DA ORDEM</Text>
+                    <View style={styles.statusGrid}>
+                      <StatusGridOption
+                        label="Pendente"
+                        value="pendente"
+                        icon="schedule"
+                        currentValue={form.status as StatusOS}
+                        activeColor={COLORS.onPrimaryContainer}
+                        activeBg={`${COLORS.primaryContainer}20`}
+                        onSelect={(v) => setForm((s) => ({ ...s, status: v }))}
+                      />
+                      <StatusGridOption
+                        label="Andamento"
+                        value="em_andamento"
+                        icon="build-circle"
+                        currentValue={form.status as StatusOS}
+                        activeColor={COLORS.warningYellow}
+                        activeBg={COLORS.warningYellowBg}
+                        onSelect={(v) => setForm((s) => ({ ...s, status: v }))}
+                      />
+                      <StatusGridOption
+                        label="Concluída"
+                        value="concluida"
+                        icon="check-circle"
+                        currentValue={form.status as StatusOS}
+                        activeColor={COLORS.successGreen}
+                        activeBg={COLORS.successGreenBg}
+                        onSelect={(v) => setForm((s) => ({ ...s, status: v }))}
+                      />
+                      <StatusGridOption
+                        label="Cancelada"
+                        value="cancelada"
+                        icon="cancel"
+                        currentValue={form.status as StatusOS}
+                        activeColor={COLORS.error}
+                        activeBg={`${COLORS.error}20`}
+                        onSelect={(v) => setForm((s) => ({ ...s, status: v }))}
+                      />
+                    </View>
+                  </View>
 
-              <Card title="Cliente e Veículo" style={styles.sectionCard}>
-                <Text style={styles.label}>Cliente Selecionado *</Text>
-                {clientes.length > 0 ? (
-                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.horizontalList}>
-                    {clientes.map(c => (
-                      <Pressable 
-                        key={c.id} 
-                        style={[
-                          styles.selectableCard, 
-                          form.clienteId === c.id && styles.selectableCardSelected
-                        ]}
-                        onPress={() => {
-                          setForm(s => ({ ...s, clienteId: c.id, veiculoId: undefined })); // reset veiculo on cliente change
-                        }}
-                      >
-                        <Text style={[styles.selectableName, form.clienteId === c.id && styles.selectableTextSelected]}>{c.nome}</Text>
-                        <Text style={[styles.selectableSub, form.clienteId === c.id && styles.selectableTextSelected]}>{c.cpf}</Text>
-                      </Pressable>
-                    ))}
-                  </ScrollView>
-                ) : (
-                  <Text style={styles.emptyText}>Nenhum cliente cadastrado.</Text>
-                )}
-
-                {form.clienteId && (
-                  <>
-                    <Text style={[styles.label, { marginTop: 16 }]}>Veículo *</Text>
-                    {veiculosDoCliente.length > 0 ? (
-                      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.horizontalList}>
-                        {veiculosDoCliente.map(v => (
-                          <Pressable 
-                            key={v.id} 
-                            style={[
-                              styles.selectableCard, 
-                              form.veiculoId === v.id && styles.selectableCardSelected
-                            ]}
-                            onPress={() => setForm(s => ({ ...s, veiculoId: v.id }))}
-                          >
-                            <Text style={[styles.selectableName, form.veiculoId === v.id && styles.selectableTextSelected]}>
-                              {v.marca} {v.modelo}
-                            </Text>
-                            <Text style={[styles.selectableSub, form.veiculoId === v.id && styles.selectableTextSelected]}>
-                              {v.placa}
-                            </Text>
-                          </Pressable>
-                        ))}
-                      </ScrollView>
-                    ) : (
-                      <View style={styles.warningBox}>
-                        <Ionicons name="warning" size={20} color={COLORS.warning || '#ffab40'} />
-                        <Text style={styles.warningText}>Este cliente não possui veículos cadastrados.</Text>
+                  {/* ── Cliente e Veículo Card ── */}
+                  <View style={styles.infoCard}>
+                    <View style={styles.infoHalf}>
+                      <View style={styles.infoHeaderRow}>
+                        <Text style={styles.infoTitle}>CLIENTE</Text>
+                        <Pressable onPress={() => setClientModalOpen(true)}>
+                          <MaterialIcons name="edit" size={16} color={COLORS.primary} />
+                        </Pressable>
                       </View>
-                    )}
-                  </>
-                )}
-              </Card>
+                      {clienteSelecionado ? (
+                        <View style={styles.infoContent}>
+                          <View style={styles.avatar}>
+                            <Text style={styles.avatarText}>{clienteSelecionado.nome.substring(0, 2).toUpperCase()}</Text>
+                          </View>
+                          <View style={{ flex: 1 }}>
+                            <Text style={styles.infoName}>{clienteSelecionado.nome}</Text>
+                            <Text style={styles.infoSub}>{clienteSelecionado.telefone}</Text>
+                          </View>
+                        </View>
+                      ) : (
+                        <Pressable style={styles.emptySelector} onPress={() => setClientModalOpen(true)}>
+                          <Text style={styles.emptyText}>Selecionar Cliente</Text>
+                        </Pressable>
+                      )}
+                    </View>
 
-              <Card title="Itens e Serviços" style={styles.sectionCard}>
-                {itensServico.map((item, index) => (
-                  <View key={index} style={styles.itemRow}>
-                    <View style={styles.itemDescCol}>
-                      <Text style={styles.itemDesc}>{item.descricao}</Text>
+                    <View style={styles.infoDivider} />
+
+                    <View style={styles.infoHalf}>
+                      <View style={styles.infoHeaderRow}>
+                        <Text style={styles.infoTitle}>VEÍCULO</Text>
+                        <Pressable onPress={() => {
+                          if (form.clienteId) setVehicleModalOpen(true);
+                          else Alert.alert('Atenção', 'Selecione um cliente primeiro.');
+                        }}>
+                          <MaterialIcons name="edit" size={16} color={COLORS.primary} />
+                        </Pressable>
+                      </View>
+                      {veiculoSelecionado ? (
+                        <View style={styles.infoContent}>
+                          <View style={styles.vehicleIconWrapper}>
+                            <MaterialIcons name="directions-car" size={20} color={COLORS.onSurfaceVariant} />
+                          </View>
+                          <View style={{ flex: 1 }}>
+                            <Text style={styles.infoName}>{veiculoSelecionado.marca} {veiculoSelecionado.modelo}</Text>
+                            <View style={styles.vehiclePlateBadge}>
+                              <Text style={styles.vehiclePlateText}>{veiculoSelecionado.placa}</Text>
+                            </View>
+                          </View>
+                        </View>
+                      ) : (
+                        <Pressable 
+                          style={styles.emptySelector} 
+                          onPress={() => {
+                            if (form.clienteId) setVehicleModalOpen(true);
+                            else Alert.alert('Atenção', 'Selecione um cliente primeiro.');
+                          }}
+                        >
+                          <Text style={styles.emptyText}>Selecionar Veículo</Text>
+                        </Pressable>
+                      )}
                     </View>
-                    <View style={styles.itemValCol}>
-                      <Text style={styles.itemVal}>{formatCurrency(item.valor)}</Text>
+                  </View>
+
+                  <View style={styles.sectionContainer}>
+                     <DarkInput
+                        label="PROBLEMA RELATADO / OBSERVAÇÕES"
+                        placeholder="Descreva o problema relatado pelo cliente..."
+                        value={form.descricaoProblema}
+                        onChangeText={(t) => setForm((s) => ({ ...s, descricaoProblema: t }))}
+                        autoCapitalize="sentences"
+                     />
+                  </View>
+
+                  {/* ── Itens e Serviços ── */}
+                  <View style={styles.sectionContainer}>
+                    <Text style={styles.sectionTitle}>ITENS E SERVIÇOS</Text>
+                    <View style={styles.cardBox}>
+                      {itensServico.map((item, idx) => (
+                        <View key={idx} style={styles.itemRow}>
+                          <View style={styles.itemAvatarActive}>
+                            <MaterialIcons name="check" size={14} color={COLORS.successGreen} />
+                          </View>
+                          <View style={styles.itemContent}>
+                            <Text style={styles.itemDesc}>{item.descricao}</Text>
+                            <Text style={styles.itemVal}>{formatCurrency(item.valor || 0)}</Text>
+                          </View>
+                          <Pressable onPress={() => handleRemoveItem(idx)} style={styles.itemAction}>
+                            <MaterialIcons name="delete-outline" size={20} color={COLORS.error} />
+                          </Pressable>
+                        </View>
+                      ))}
+
+                      {/* Add Item Form */}
+                      <View style={styles.addItemForm}>
+                        <View style={styles.addItemDescCol}>
+                          <TextInput
+                            style={styles.addItemInput}
+                            placeholder="Descrição..."
+                            placeholderTextColor={COLORS.onSecondaryFixedVariant}
+                            value={novoItemDesc}
+                            onChangeText={setNovoItemDesc}
+                          />
+                        </View>
+                        <View style={styles.addItemQtdCol}>
+                          <TextInput
+                            style={styles.addItemInputCenter}
+                            placeholder="Qtd"
+                            placeholderTextColor={COLORS.onSecondaryFixedVariant}
+                            keyboardType="numeric"
+                            value={novoItemQtd}
+                            onChangeText={setNovoItemQtd}
+                          />
+                        </View>
+                        <View style={styles.addItemValCol}>
+                          <TextInput
+                            style={styles.addItemInput}
+                            placeholder="R$ Valor"
+                            placeholderTextColor={COLORS.onSecondaryFixedVariant}
+                            keyboardType="numeric"
+                            value={novoItemValor}
+                            onChangeText={setNovoItemValor}
+                          />
+                        </View>
+                        <Pressable style={styles.addBtn} onPress={handleAddItem}>
+                          <MaterialIcons name="add" size={20} color={COLORS.onSurface} />
+                        </Pressable>
+                      </View>
                     </View>
-                    <Pressable onPress={() => handleRemoveItem(index)} style={styles.itemRemoveBtn}>
-                      <Ionicons name="trash-outline" size={20} color={COLORS.danger} />
+                  </View>
+
+                  {/* ── Desconto ── */}
+                  <View style={styles.sectionContainer}>
+                    <Text style={styles.sectionTitle}>CUPOM DE DESCONTO</Text>
+                    <View style={styles.discountRow}>
+                      <View style={{ flex: 1 }}>
+                        <DarkInput
+                           value={desconto > 0 ? desconto.toString() : ''}
+                           onChangeText={(t) => setDesconto(parseFloat(t) || 0)}
+                           placeholder="Valor do desconto R$"
+                           keyboardType="numeric"
+                        />
+                      </View>
+                    </View>
+                  </View>
+
+                  {/* ── Finance Summary ── */}
+                  <View style={styles.summaryCard}>
+                    <View style={styles.summaryRow}>
+                      <Text style={styles.summaryLabel}>Subtotal</Text>
+                      <Text style={styles.summaryValue}>{formatCurrency(subtotal)}</Text>
+                    </View>
+                    <View style={styles.summaryRow}>
+                      <Text style={styles.summaryLabel}>Desconto</Text>
+                      <Text style={styles.summaryValue}>- {formatCurrency(desconto)}</Text>
+                    </View>
+                    <View style={styles.summaryDivider} />
+                    <View style={styles.summaryRow}>
+                      <Text style={styles.summaryTotalLabel}>Valor Total</Text>
+                      <Text style={styles.summaryTotalValue}>{formatCurrency(totalGeral)}</Text>
+                    </View>
+                  </View>
+
+                  {/* ── Actions ── */}
+                  <View style={styles.actions}>
+                    <Pressable
+                      style={({ pressed }) => [styles.btnPrimary, pressed && { opacity: 0.85 }]}
+                      onPress={handleSave}
+                      disabled={loading}
+                    >
+                      <Text style={styles.btnPrimaryText}>{loading ? 'Salvando...' : 'Salvar Ordem de Serviço'}</Text>
+                    </Pressable>
+                    <Pressable
+                      style={({ pressed }) => [styles.btnOutline, pressed && { backgroundColor: COLORS.surfaceVariant }]}
+                      onPress={() => router.back()}
+                      disabled={loading}
+                    >
+                      <Text style={styles.btnOutlineText}>Cancelar</Text>
                     </Pressable>
                   </View>
-                ))}
+                </>
+              )}
+            </ScrollView>
+          </TouchableWithoutFeedback>
+        </KeyboardAvoidingView>
 
-                <View style={styles.addItemForm}>
-                  <View style={[styles.col, { flex: 2, marginRight: 8 }]}>
-                    <Input 
-                      placeholder="Descrição do serviço/peça" 
-                      value={novoItemDesc}
-                      onChangeText={setNovoItemDesc}
-                      style={{ marginBottom: 0 }}
-                    />
-                  </View>
-                  <View style={[styles.col, { flex: 1, marginRight: 8 }]}>
-                    <Input 
-                      placeholder="R$ Valor" 
-                      keyboardType="numeric"
-                      value={novoItemValor}
-                      onChangeText={setNovoItemValor}
-                      style={{ marginBottom: 0 }}
-                    />
-                  </View>
-                  <Button 
-                    title="" 
-                    icon="add" 
-                    onPress={handleAddItem}
-                    style={styles.addBtn}
-                  />
-                </View>
-
-                <View style={styles.totalRow}>
-                  <Text style={styles.totalLabel}>Valor Total</Text>
-                  <Text style={styles.totalValue}>{formatCurrency(form.valorTotal)}</Text>
-                </View>
-              </Card>
-
-              <View style={styles.actions}>
-                <Button 
-                  title="Salvar Ordem de Serviço" 
-                  icon="save-outline"
-                  onPress={handleSave} 
-                  loading={loading} 
-                />
-                
-                {!isNew && (
-                  <Button 
-                    title="Excluir OS" 
-                    icon="trash-outline"
-                    variant="danger"
-                    onPress={confirmDelete} 
-                    disabled={loading}
-                    style={styles.deleteBtn}
-                  />
+        {/* ── Modals ── */}
+        <Modal visible={clientModalOpen} transparent animationType="slide">
+          <Pressable style={styles.modalOverlay} onPress={() => setClientModalOpen(false)}>
+            <View style={styles.modalSheet}>
+              <Text style={styles.modalTitle}>Selecionar Cliente</Text>
+              <FlatList
+                data={clientes}
+                keyExtractor={(c) => c.id.toString()}
+                renderItem={({ item }) => (
+                  <Pressable
+                    style={[styles.modalOption, form.clienteId === item.id && styles.modalOptionActive]}
+                    onPress={() => {
+                      setForm((s) => ({ ...s, clienteId: item.id, veiculoId: undefined }));
+                      setClientModalOpen(false);
+                    }}
+                  >
+                    <Text style={styles.modalOptionName}>{item.nome}</Text>
+                  </Pressable>
                 )}
-                
-                <Button 
-                  title="Cancelar" 
-                  variant="outline"
-                  onPress={() => router.back()} 
-                  disabled={loading}
-                  style={styles.cancelBtn}
+              />
+            </View>
+          </Pressable>
+        </Modal>
+
+        <Modal visible={vehicleModalOpen} transparent animationType="slide">
+          <Pressable style={styles.modalOverlay} onPress={() => setVehicleModalOpen(false)}>
+            <View style={styles.modalSheet}>
+              <Text style={styles.modalTitle}>Selecionar Veículo</Text>
+              {veiculosDoCliente.length > 0 ? (
+                <FlatList
+                  data={veiculosDoCliente}
+                  keyExtractor={(v) => v.id.toString()}
+                  renderItem={({ item }) => (
+                    <Pressable
+                      style={[styles.modalOption, form.veiculoId === item.id && styles.modalOptionActive]}
+                      onPress={() => {
+                        setForm((s) => ({ ...s, veiculoId: item.id }));
+                        setVehicleModalOpen(false);
+                      }}
+                    >
+                      <Text style={styles.modalOptionName}>{item.marca} {item.modelo} - {item.placa}</Text>
+                    </Pressable>
+                  )}
                 />
-              </View>
-            </>
-          )}
-          </ScrollView>
-        </TouchableWithoutFeedback>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+              ) : (
+                <Text style={styles.emptyText}>Cliente não possui veículos.</Text>
+              )}
+            </View>
+          </Pressable>
+        </Modal>
+      </SafeAreaView>
+    </View>
   );
 }
 
+// ─── Styles ──────────────────────────────────────────────────
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: COLORS.white },
-  keyboardView: { flex: 1 },
-  container: { 
-    padding: 20, 
-    backgroundColor: COLORS.gray100, 
-    gap: 20,
-    paddingBottom: 40,
-  },
-  loadingContainer: {
-    flex: 1,
-    minHeight: 200,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  sectionCard: {
-    padding: 20,
-  },
-  row: {
+  root: { flex: 1, backgroundColor: COLORS.background },
+  safeArea: { flex: 1 },
+  flex: { flex: 1 },
+
+  header: {
     flexDirection: 'row',
-    gap: 12,
+    alignItems: 'center',
+    paddingHorizontal: SPACING.margin,
+    paddingVertical: SPACING.md,
+    gap: SPACING.md,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.surfaceVariant,
+    backgroundColor: COLORS.background,
   },
-  col: {
-    flex: 1,
+  backBtn: {
+    padding: SPACING.xs,
+    marginLeft: -SPACING.xs,
+    borderRadius: 999,
   },
-  label: { 
-    color: COLORS.text, 
-    marginBottom: 8,
-    fontSize: 14,
-    fontWeight: '600',
+  headerTitleContainer: { flex: 1 },
+  headerTitle: {
+    ...TYPOGRAPHY.headlineSm,
+    color: COLORS.onSurface,
+  },
+  headerSubtitle: {
+    ...TYPOGRAPHY.bodyMd,
+    color: COLORS.onSurfaceVariant,
+  },
+
+  container: {
+    padding: SPACING.margin,
+    gap: SPACING.lg,
+    paddingBottom: 80,
+  },
+
+  loadingContainer: { minHeight: 200, alignItems: 'center', justifyContent: 'center' },
+  loadingText: { ...TYPOGRAPHY.bodyLg, color: COLORS.onSurfaceVariant },
+
+  sectionContainer: {
+    gap: SPACING.sm,
+  },
+  sectionTitle: {
+    ...TYPOGRAPHY.labelCaps,
+    color: COLORS.onSurfaceVariant,
   },
   statusGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
+    gap: SPACING.sm,
+    justifyContent: 'space-between',
   },
-  statusOption: {
+
+  // Info Card
+  infoCard: {
     flexDirection: 'row',
-    alignItems: 'center',
-    width: '48%',
-    padding: 12,
-    borderRadius: 12,
+    backgroundColor: COLORS.surfaceContainer,
+    borderRadius: BORDER_RADIUS.lg,
     borderWidth: 1,
-    borderColor: COLORS.border,
-    backgroundColor: COLORS.white,
+    borderColor: COLORS.surfaceVariant,
+    ...SHADOWS.level1,
   },
-  statusDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    marginRight: 8,
+  infoHalf: {
+    flex: 1,
+    padding: SPACING.md,
   },
-  statusText: {
-    fontSize: 14,
-    color: COLORS.text,
+  infoDivider: {
+    width: 1,
+    backgroundColor: COLORS.surfaceVariant,
   },
-  horizontalList: {
-    marginHorizontal: -20,
-    paddingHorizontal: 20,
-    paddingBottom: 8,
+  infoHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: SPACING.sm,
   },
-  selectableCard: {
-    marginRight: 12,
-    width: 180,
-    padding: 12,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: 'transparent',
-    backgroundColor: COLORS.gray100,
+  infoTitle: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: COLORS.onSurfaceVariant,
+    letterSpacing: 0.5,
   },
-  selectableCardSelected: {
-    borderColor: COLORS.primary,
-    backgroundColor: `${COLORS.primary}10`,
-  },
-  selectableName: {
-    fontWeight: '700',
-    color: COLORS.text,
-  },
-  selectableSub: {
-    fontSize: 12,
-    color: COLORS.textSecondary,
-    marginTop: 4,
-  },
-  selectableTextSelected: {
-    color: COLORS.primary,
-  },
-  warningBox: {
+  infoContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fff3e0',
-    padding: 12,
-    borderRadius: 8,
-    gap: 8,
+    gap: SPACING.sm,
   },
-  warningText: {
-    color: '#e65100',
-    fontSize: 14,
-    flex: 1,
+  avatar: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: COLORS.primaryContainer,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: COLORS.white,
+  },
+  infoName: {
+    ...TYPOGRAPHY.bodyMd,
+    fontWeight: '600',
+    color: COLORS.onSurface,
+  },
+  infoSub: {
+    fontSize: 12,
+    color: COLORS.onSurfaceVariant,
+  },
+  vehicleIconWrapper: {
+    width: 32,
+    height: 32,
+    borderRadius: BORDER_RADIUS.md,
+    backgroundColor: COLORS.surfaceVariant,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  vehiclePlateBadge: {
+    backgroundColor: COLORS.inputBg,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: COLORS.inputBorder,
+    alignSelf: 'flex-start',
+    marginTop: 2,
+  },
+  vehiclePlateText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: COLORS.onSurface,
+  },
+  emptySelector: {
+    paddingVertical: SPACING.xs,
   },
   emptyText: {
-    color: COLORS.textSecondary,
+    ...TYPOGRAPHY.bodyMd,
+    color: COLORS.primary,
     fontStyle: 'italic',
+  },
+
+  // Card Box (Lists)
+  cardBox: {
+    backgroundColor: COLORS.surfaceContainer,
+    borderRadius: BORDER_RADIUS.md,
+    borderWidth: 1,
+    borderColor: COLORS.surfaceVariant,
+    overflow: 'hidden',
   },
   itemRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 12,
+    padding: SPACING.md,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.gray100,
+    borderBottomColor: COLORS.surfaceVariant,
+    gap: SPACING.md,
   },
-  itemDescCol: {
-    flex: 2,
+  itemAvatarActive: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: COLORS.successGreenBg,
+    borderWidth: 1,
+    borderColor: COLORS.successGreen,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  itemDesc: {
-    fontSize: 14,
-    color: COLORS.text,
-  },
-  itemValCol: {
-    flex: 1,
-    alignItems: 'flex-end',
-    paddingRight: 12,
-  },
-  itemVal: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: COLORS.text,
-  },
-  itemRemoveBtn: {
-    padding: 4,
-  },
+  itemContent: { flex: 1 },
+  itemDesc: { ...TYPOGRAPHY.bodyLg, color: COLORS.onSurface },
+  itemVal: { ...TYPOGRAPHY.bodyMd, color: COLORS.onSurfaceVariant, marginTop: 2 },
+  itemAction: { padding: SPACING.xs },
+
   addItemForm: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 16,
-    paddingTop: 16,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.gray100,
+    padding: SPACING.sm,
+    gap: SPACING.xs,
+    backgroundColor: COLORS.surfaceContainerLow,
   },
+  addItemInput: {
+    height: 36,
+    backgroundColor: COLORS.inputBg,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: COLORS.inputBorder,
+    color: COLORS.onSurface,
+    paddingHorizontal: SPACING.sm,
+    fontSize: 13,
+  },
+  addItemInputCenter: {
+    height: 36,
+    backgroundColor: COLORS.inputBg,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: COLORS.inputBorder,
+    color: COLORS.onSurface,
+    textAlign: 'center',
+    fontSize: 13,
+  },
+  addItemDescCol: { flex: 3 },
+  addItemQtdCol: { flex: 1 },
+  addItemValCol: { flex: 2 },
   addBtn: {
-    paddingHorizontal: 16,
+    width: 36,
+    height: 36,
+    borderRadius: 6,
+    backgroundColor: COLORS.surfaceVariant,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  totalRow: {
+
+  discountRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: SPACING.md,
+  },
+
+  // Summary
+  summaryCard: {
+    backgroundColor: COLORS.surfaceContainer,
+    borderRadius: BORDER_RADIUS.xl,
+    padding: SPACING.lg,
+    borderWidth: 1,
+    borderColor: COLORS.surfaceVariant,
+    marginTop: SPACING.sm,
+  },
+  summaryRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: 20,
-    padding: 16,
-    backgroundColor: COLORS.gray100,
-    borderRadius: 12,
+    marginBottom: SPACING.sm,
   },
-  totalLabel: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: COLORS.text,
+  summaryLabel: { ...TYPOGRAPHY.bodyMd, color: COLORS.onSurfaceVariant },
+  summaryValue: { ...TYPOGRAPHY.bodyMd, color: COLORS.onSurface, fontWeight: '600' },
+  summaryDivider: { height: 1, backgroundColor: COLORS.surfaceVariant, marginVertical: SPACING.sm },
+  summaryTotalLabel: { ...TYPOGRAPHY.headlineSm, color: COLORS.onSurface },
+  summaryTotalValue: { fontSize: 24, fontWeight: '800', color: COLORS.successGreen },
+
+  // Actions
+  actions: { gap: SPACING.md, marginTop: SPACING.md },
+  btnPrimary: {
+    backgroundColor: COLORS.primaryContainer,
+    paddingVertical: SPACING.md,
+    borderRadius: BORDER_RADIUS.default,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...SHADOWS.button,
   },
-  totalValue: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: COLORS.success || '#00e676',
+  btnPrimaryText: { ...TYPOGRAPHY.bodyLg, color: COLORS.onPrimary, fontWeight: '700' },
+  btnOutline: {
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: COLORS.surfaceVariant,
+    paddingVertical: SPACING.md,
+    borderRadius: BORDER_RADIUS.default,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  actions: {
-    gap: 12,
-    marginTop: 8,
+  btnOutlineText: { ...TYPOGRAPHY.bodyLg, color: COLORS.onSurface, fontWeight: '600' },
+
+  // Modals
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    justifyContent: 'flex-end',
   },
-  deleteBtn: {
-    marginTop: 8,
+  modalSheet: {
+    backgroundColor: COLORS.surfaceContainerHigh,
+    borderTopLeftRadius: BORDER_RADIUS.xxl,
+    borderTopRightRadius: BORDER_RADIUS.xxl,
+    padding: SPACING.lg,
+    maxHeight: '70%',
   },
-  cancelBtn: {
-    marginTop: 4,
+  modalTitle: { ...TYPOGRAPHY.headlineSm, color: COLORS.onSurface, marginBottom: SPACING.md },
+  modalOption: {
+    padding: SPACING.md,
+    borderRadius: BORDER_RADIUS.md,
+    marginBottom: SPACING.xs,
+    backgroundColor: COLORS.surfaceContainer,
   },
+  modalOptionActive: { backgroundColor: `${COLORS.primaryContainer}20` },
+  modalOptionName: { ...TYPOGRAPHY.bodyLg, color: COLORS.onSurface },
 });
