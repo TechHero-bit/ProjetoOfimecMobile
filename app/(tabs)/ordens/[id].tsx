@@ -177,7 +177,7 @@ export default function OrdemFormScreen() {
   const [form, setForm] = useState<Partial<OrdemServico>>({
     clienteId: undefined,
     veiculoId: undefined,
-    status: 'pendente',
+    status: 'inadimplente',
     numeroOs: isNew ? `OS-${new Date().getTime().toString().slice(-6)}` : '',
     valorTotal: 0,
     situacao: '',
@@ -197,7 +197,7 @@ export default function OrdemFormScreen() {
       setForm({
         clienteId: undefined,
         veiculoId: undefined,
-        status: 'pendente',
+        status: 'inadimplente',
         numeroOs: `OS-${new Date().getTime().toString().slice(-6)}`,
         valorTotal: 0,
         situacao: '',
@@ -338,12 +338,12 @@ export default function OrdemFormScreen() {
                     <Text style={styles.sectionTitle}>STATUS DA ORDEM</Text>
                     <View style={styles.statusGrid}>
                       <StatusGridOption
-                        label="Pendente"
-                        value="pendente"
-                        icon="schedule"
+                        label="Inadimplente"
+                        value="inadimplente"
+                        icon="warning"
                         currentValue={form.status as StatusOS}
-                        activeColor={COLORS.onSurfaceVariant}
-                        activeBg={COLORS.surfaceVariant}
+                        activeColor={COLORS.statusInadimplente}
+                        activeBg={'#431407'}
                         onSelect={(v) => setForm((s) => ({ ...s, status: v }))}
                         disabled={isReadOnly}
                       />

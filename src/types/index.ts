@@ -48,7 +48,7 @@ export interface Veiculo {
 }
 
 // ========== Ordem de Serviço ==========
-export type StatusOS = 'pendente' | 'em_andamento' | 'concluida' | 'cancelada';
+export type StatusOS = 'inadimplente' | 'em_andamento' | 'concluida' | 'cancelada';
 
 export interface ServicoItem {
   descricao: string;
@@ -87,14 +87,14 @@ export interface DashboardStats {
 
 // ========== Status Helpers ==========
 export const STATUS_LABELS: Record<StatusOS, string> = {
-  pendente: 'Pendente',
+  inadimplente: 'Inadimplente',
   em_andamento: 'Em Andamento',
   concluida: 'Concluída',
   cancelada: 'Cancelada',
 };
 
 export const STATUS_ICONS: Record<StatusOS, string> = {
-  pendente: 'time-outline',
+  inadimplente: 'warning-outline',
   em_andamento: 'reload-outline',
   concluida: 'checkmark-circle-outline',
   cancelada: 'close-circle-outline',

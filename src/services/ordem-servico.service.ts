@@ -4,9 +4,9 @@ import { supabase } from './supabase';
 type OrdemServicoPayload = Omit<OrdemServico, 'id' | 'dataAbertura' | 'dataAtualizacao'>;
 
 function mapStatusDbToApi(dbStatus: string): StatusOS {
-  if (!dbStatus) return 'pendente';
+  if (!dbStatus) return 'inadimplente';
   const status = dbStatus.toUpperCase();
-  if (status === 'ABERTA' || status === 'PENDENTE') return 'pendente';
+  if (status === 'ABERTA' || status === 'PENDENTE' || status === 'INADIMPLENTE') return 'inadimplente';
   if (status === 'EM_ANDAMENTO') return 'em_andamento';
   if (status === 'CONCLUIDA') return 'concluida';
   if (status === 'CANCELADA') return 'cancelada';
@@ -14,9 +14,9 @@ function mapStatusDbToApi(dbStatus: string): StatusOS {
 }
 
 function mapStatusApiToDb(apiStatus: string): string {
-  if (!apiStatus) return 'ABERTA';
+  if (!apiStatus) return 'INADIMPLENTE';
   const status = apiStatus.toLowerCase();
-  if (status === 'pendente') return 'ABERTA';
+  if (status === 'inadimplente' || status === 'pendente') return 'INADIMPLENTE';
   if (status === 'em_andamento') return 'EM_ANDAMENTO';
   if (status === 'concluida') return 'CONCLUIDA';
   if (status === 'cancelada') return 'CANCELADA';
@@ -92,7 +92,7 @@ export async function getOrdemServico(id: number) {
 export async function createOrdemServico(payload: OrdemServicoPayload) {
   const valorTotal = payload.valorTotal !== undefined ? payload.valorTotal : (payload.servicos ? payload.servicos.reduce((sum, s) => sum + s.valor, 0) : 0);
   const numeroOs = payload.numeroOs || `OS-${new Date().getFullYear()}${(new Date().getMonth() + 1).toString().padStart(2, '0')}-${Math.floor(100000 + Math.random() * 900000)}`;
-  const statusDb = mapStatusApiToDb(payload.status || 'pendente');
+  const statusDb = mapStatusApiToDb(payload.status || 'inadimplente');
 
   const { data: osData, error: osError } = await supabase
     .from('ordens_servico')

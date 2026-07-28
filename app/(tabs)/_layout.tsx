@@ -82,18 +82,6 @@ export default function TabLayout() {
         name="perfil"
         options={{ href: null }}
       />
-      <Tabs.Screen
-        name="clientes/[id]"
-        options={{ href: null }}
-      />
-      <Tabs.Screen
-        name="ordens/[id]"
-        options={{ href: null }}
-      />
-      <Tabs.Screen
-        name="veiculos/[id]"
-        options={{ href: null }}
-      />
     </Tabs>
   );
 }

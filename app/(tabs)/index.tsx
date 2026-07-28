@@ -1,7 +1,8 @@
 import { MaterialCommunityIcons, MaterialIcons, Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
-import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context'; // RESPONSIVIDADE: Importando SafeAreaView para evitar cortes
 
 import { useAuth } from '@/src/contexts/AuthContext';
 import { listClientes } from '@/src/services/cliente.service';
@@ -33,7 +34,7 @@ const progressStyles = StyleSheet.create({
   labelRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: SPACING.xs },
   label: { ...TYPOGRAPHY.labelCaps, color: COLORS.onSurface },
   value: { ...TYPOGRAPHY.bodyMd, color: COLORS.onSurfaceVariant },
-  track: { width: '100%', height: 8, backgroundColor: COLORS.surfaceVariant, borderRadius: 999, overflow: 'hidden' },
+  track: { flex: 1, width: '100%', minHeight: 8, maxHeight: 12, backgroundColor: COLORS.surfaceVariant, borderRadius: 999, overflow: 'hidden' }, // RESPONSIVIDADE: Substituindo altura fixa por minHeight e maxHeight
   fill: { height: '100%', borderRadius: 999 },
 });
 
@@ -45,8 +46,8 @@ function OrderStatusTag({ status }: { status: string }) {
         return { label: 'CONCLUÍDA', bg: COLORS.successGreenBg, text: COLORS.successGreen };
       case 'em_andamento':
         return { label: 'EM ANDAMENTO', bg: COLORS.warningYellowBg, text: COLORS.warningYellow };
-      case 'pendente':
-        return { label: 'PENDENTE', bg: `${COLORS.primaryContainer}20`, text: COLORS.onPrimaryContainer };
+      case 'inadimplente':
+        return { label: 'INADIMPLENTE', bg: '#431407', text: COLORS.statusInadimplente };
       case 'cancelada':
         return { label: 'CANCELADA', bg: `${COLORS.error}20`, text: COLORS.error };
       default:
@@ -69,6 +70,10 @@ const tagStyles = StyleSheet.create({
 // ─── Main Dashboard ──────────────────────────────────────────
 export default function Dashboard() {
   const { user } = useAuth();
+  
+  // RESPONSIVIDADE: Pegando a largura da tela para breakpoints dinâmicos e adaptação
+  const { width } = useWindowDimensions();
+  const isTablet = width >= 600;
   const [stats, setStats] = useState({ clientes: 0, veiculos: 0, ordensAbertas: 0, receita: 0 });
   const [recentes, setRecentes] = useState<OrdemServico[]>([]);
   const [refreshing, setRefreshing] = useState(false);
@@ -78,7 +83,7 @@ export default function Dashboard() {
     try {
       const [clientes, veiculos, ordens] = await Promise.all([listClientes(), listVeiculos(), listOrdensServico()]);
 
-      const ordensAbertas = ordens.filter((o) => o.status === 'pendente' || o.status === 'em_andamento').length;
+      const ordensAbertas = ordens.filter((o) => o.status === 'inadimplente' || o.status === 'em_andamento').length;
       const receita = ordens
         .filter((o) => o.status === 'concluida')
         .reduce((sum, o) => sum + (o.valorTotal || 0), 0);
@@ -122,12 +127,14 @@ export default function Dashboard() {
     const total = allOrdens.length || 1;
     const concluidas = allOrdens.filter(o => o.status === 'concluida').length;
     const andamento = allOrdens.filter(o => o.status === 'em_andamento').length;
-    const pendentes = allOrdens.filter(o => o.status === 'pendente').length;
+    const inadimplentes = allOrdens.filter(o => o.status === 'inadimplente').length;
+    const canceladas = allOrdens.filter(o => o.status === 'cancelada').length;
     return {
-      concluidas, andamento, pendentes,
+      concluidas, andamento, inadimplentes, canceladas,
       pctConcluidas: Math.round((concluidas / total) * 100),
       pctAndamento: Math.round((andamento / total) * 100),
-      pctPendentes: Math.round((pendentes / total) * 100),
+      pctInadimplentes: Math.round((inadimplentes / total) * 100),
+      pctCanceladas: Math.round((canceladas / total) * 100),
     };
   }, [allOrdens]);
 
@@ -208,7 +215,7 @@ export default function Dashboard() {
 
   const aReceber = useMemo(() => {
     return allOrdens
-      .filter(o => o.status === 'pendente' || o.status === 'em_andamento')
+      .filter(o => o.status === 'inadimplente' || o.status === 'em_andamento')
       .reduce((sum, o) => sum + (o.valorTotal || 0), 0);
   }, [allOrdens]);
 
@@ -234,11 +241,13 @@ export default function Dashboard() {
   }, [allOrdens]);
 
   return (
-    <View style={styles.root}>
+    // RESPONSIVIDADE: Envolvendo a raiz em SafeAreaView
+    <SafeAreaView style={styles.root}>
       <AppHeader />
 
+      {/* RESPONSIVIDADE: Aplicando flexGrow: 1 para o ScrollView preencher o espaço restante */}
       <ScrollView
-        contentContainerStyle={styles.container}
+        contentContainerStyle={[styles.container, { flexGrow: 1, paddingHorizontal: isTablet ? SPACING.lg * 2 : SPACING.margin }]}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} />}
         showsVerticalScrollIndicator={false}
       >
@@ -257,30 +266,31 @@ export default function Dashboard() {
         {/* ── Cards de Resumo (Bento Grid) ── */}
         <View style={styles.bentoGrid}>
           {/* Clientes Ativos */}
-          <Pressable style={styles.bentoCardHalf} onPress={() => router.push('/(tabs)/clientes')}>
+          {/* RESPONSIVIDADE: Ajuste dinâmico de estilo caso seja tablet (colocando os 3 na mesma linha) */}
+          <Pressable style={[styles.bentoCardHalf, isTablet && styles.bentoCardTablet]} onPress={() => router.push('/(tabs)/clientes')}>
             <View style={[styles.bentoIndicator, { backgroundColor: COLORS.tertiary }]} />
             <View style={styles.bentoContent}>
-              <MaterialIcons name="person" size={24} color={COLORS.tertiary} />
+              <MaterialIcons name="person" size={isTablet ? 32 : 24} color={COLORS.tertiary} />
               <Text style={styles.bentoValue}>{stats.clientes}</Text>
               <Text style={styles.bentoLabel}>CLIENTES ATIVOS</Text>
             </View>
           </Pressable>
 
           {/* Veículos no Pátio */}
-          <Pressable style={styles.bentoCardHalf} onPress={() => router.push('/(tabs)/veiculos')}>
+          <Pressable style={[styles.bentoCardHalf, isTablet && styles.bentoCardTablet]} onPress={() => router.push('/(tabs)/veiculos')}>
             <View style={[styles.bentoIndicator, { backgroundColor: COLORS.secondaryFixedDim }]} />
             <View style={styles.bentoContent}>
-              <MaterialIcons name="directions-car" size={24} color={COLORS.secondaryFixedDim} />
+              <MaterialIcons name="directions-car" size={isTablet ? 32 : 24} color={COLORS.secondaryFixedDim} />
               <Text style={styles.bentoValue}>{stats.veiculos}</Text>
               <Text style={styles.bentoLabel}>VEÍCULOS PÁTIO</Text>
             </View>
           </Pressable>
 
           {/* Ordens Abertas (full width) */}
-          <Pressable style={styles.bentoCardFull} onPress={() => router.push('/(tabs)/ordens')}>
+          <Pressable style={[styles.bentoCardFull, isTablet && styles.bentoCardTablet]} onPress={() => router.push('/(tabs)/ordens')}>
             <View style={[styles.bentoIndicator, { backgroundColor: COLORS.primaryContainer }]} />
             <View style={styles.bentoContent}>
-              <MaterialIcons name="assignment" size={24} color={COLORS.primaryContainer} />
+              <MaterialIcons name="assignment" size={isTablet ? 32 : 24} color={COLORS.primaryContainer} />
               <Text style={styles.bentoValue}>{stats.ordensAbertas}</Text>
               <Text style={styles.bentoLabel}>ORDENS ABERTAS</Text>
             </View>
@@ -303,10 +313,16 @@ export default function Dashboard() {
             color={COLORS.primaryContainer}
           />
           <ProgressBar
-            label="PENDENTES"
-            percentage={orderStats.pctPendentes}
-            count={orderStats.pendentes}
-            color={COLORS.outlineVariant}
+            label="INADIMPLENTES"
+            percentage={orderStats.pctInadimplentes}
+            count={orderStats.inadimplentes}
+            color={COLORS.statusInadimplente}
+          />
+          <ProgressBar
+            label="CANCELADAS"
+            percentage={orderStats.pctCanceladas}
+            count={orderStats.canceladas}
+            color={COLORS.error}
           />
         </View>
 
@@ -342,7 +358,8 @@ export default function Dashboard() {
           <Text style={styles.weeklyLabel}>RECEITA SEMANAL</Text>
           <Text style={styles.weeklyValue}>{formatCurrency(receitaSemanal || 0)}</Text>
           <View style={styles.chartWrapper}>
-            <BarChart data={chartData} height={100} />
+            {/* RESPONSIVIDADE: Gráfico escalável para preencher mais altura em tablets */}
+            <BarChart data={chartData} height={isTablet ? 150 : 100} />
           </View>
         </View>
 
@@ -396,7 +413,7 @@ export default function Dashboard() {
           )}
         </View>
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -475,6 +492,12 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     position: 'relative',
     ...SHADOWS.level1,
+  },
+  // RESPONSIVIDADE: Classe para adaptar largura dinamicamente no Grid
+  bentoCardTablet: {
+    flex: 1,
+    minWidth: '30%', // Permite 3 colunas em tablets
+    width: 'auto',
   },
   bentoIndicator: {
     position: 'absolute',
@@ -633,7 +656,7 @@ const styles = StyleSheet.create({
   },
   recentIcon: {
     width: 40,
-    height: 40,
+    aspectRatio: 1, // RESPONSIVIDADE: Substituindo height fixa por aspectRatio para manter a proporção
     borderRadius: BORDER_RADIUS.md,
     backgroundColor: COLORS.inputBg,
     alignItems: 'center',

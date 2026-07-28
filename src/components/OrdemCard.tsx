@@ -31,12 +31,12 @@ export default function OrdemCard({
 
   const cycleStatus = () => {
     const cycleMap: Record<string, StatusOS> = {
-      pendente: 'em_andamento',
+      inadimplente: 'em_andamento',
       em_andamento: 'concluida',
-      concluida: 'pendente',
+      concluida: 'inadimplente',
       cancelada: 'cancelada'
     };
-    setCurrentStatus(cycleMap[currentStatus] || 'pendente');
+    setCurrentStatus(cycleMap[currentStatus] || 'inadimplente');
   };
 
   const formatCurrency = (value: number) => {
@@ -45,11 +45,11 @@ export default function OrdemCard({
 
   const getStatusConfig = () => {
     switch(currentStatus) {
-      case 'pendente':
+      case 'inadimplente':
         return { 
-          color: COLORS.onSurfaceVariant, 
-          label: 'PENDENTE', 
-          bg: COLORS.surfaceVariant 
+          color: COLORS.statusInadimplente, 
+          label: 'INADIMPLENTE', 
+          bg: '#431407' 
         };
       case 'em_andamento':
         return { 
@@ -71,9 +71,9 @@ export default function OrdemCard({
         };
       default:
         return { 
-          color: '#ef4444', 
-          label: 'PENDENTE', 
-          bg: '#7f1d1d' 
+          color: COLORS.statusInadimplente, 
+          label: 'INADIMPLENTE', 
+          bg: '#431407' 
         };
     }
   };

@@ -21,7 +21,7 @@ type OrdemWithDetails = OrdemServico & {
 
 const FILTER_OPTIONS: FilterOption[] = [
   { id: 'todos', label: 'TODOS' },
-  { id: 'pendente', label: 'PENDENTES' },
+  { id: 'inadimplente', label: 'INADIMPLENTES' },
   { id: 'em_andamento', label: 'EM ANDAMENTO' },
   { id: 'concluida', label: 'CONCLUÍDAS' },
 ];

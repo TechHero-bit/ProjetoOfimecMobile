@@ -16,7 +16,7 @@ import {
   TouchableWithoutFeedback,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import AppHeader from '@/src/components/AppHeader';
 import { listClientes } from '@/src/services/cliente.service';
@@ -200,6 +200,7 @@ export default function VeiculoFormScreen() {
   const { id } = useLocalSearchParams();
   const navigation = useNavigation();
   const isNew = !id || id === 'new';
+  const insets = useSafeAreaInsets();
 
   const [loading, setLoading] = useState(false);
   const [initialLoading, setInitialLoading] = useState(!isNew);
@@ -458,7 +459,7 @@ export default function VeiculoFormScreen() {
       {/* ── Client Selection Modal ── */}
       <Modal visible={clientModalOpen} transparent animationType="slide">
         <Pressable style={styles.modalOverlay} onPress={() => setClientModalOpen(false)}>
-          <View style={styles.modalSheet}>
+          <View style={[styles.modalSheet, { paddingBottom: insets.bottom + SPACING.lg }]}>
             <Text style={styles.modalTitle}>Selecionar Cliente</Text>
             {clientes.length > 0 ? (
               <FlatList

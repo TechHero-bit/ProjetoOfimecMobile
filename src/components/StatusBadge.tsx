@@ -8,11 +8,11 @@ type Props = {
 };
 
 const STATUS_CONFIG = {
-  pendente: { 
-    label: 'Pendente', 
-    color: COLORS.statusPendente, 
-    bgColor: '#4A3600', // Dark amber
-    textColor: COLORS.statusPendente
+  inadimplente: { 
+    label: 'Inadimplente', 
+    color: COLORS.statusInadimplente, 
+    bgColor: '#431407', // Dark orange/red
+    textColor: COLORS.statusInadimplente
   },
   em_andamento: { 
     label: 'Em Andamento', 
@@ -35,7 +35,7 @@ const STATUS_CONFIG = {
 };
 
 export default function StatusBadge({ status, style }: Props) {
-  const config = STATUS_CONFIG[status] || STATUS_CONFIG.pendente;
+  const config = STATUS_CONFIG[status] || STATUS_CONFIG.inadimplente;
 
   return (
     <View style={[styles.badge, { backgroundColor: config.bgColor }, style]}>

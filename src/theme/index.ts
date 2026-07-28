@@ -65,7 +65,7 @@ export const COLORS = {
   surfaceTint: '#ffb3ad',
 
   // Status Colors
-  statusPendente: '#F59E0B',
+  statusInadimplente: '#EA580C',
   statusEmAndamento: '#3B82F6',
   statusConcluida: '#10B981',
   statusCancelada: '#B91C1C',
