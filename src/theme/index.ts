@@ -68,7 +68,7 @@ export const COLORS = {
   statusPendente: '#F59E0B',
   statusEmAndamento: '#3B82F6',
   statusConcluida: '#10B981',
-  statusCancelada: '#EF4444',
+  statusCancelada: '#B91C1C',
 
   // Web-matched UI tokens
   successGreen: '#4ade80',

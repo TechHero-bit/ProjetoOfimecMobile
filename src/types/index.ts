@@ -18,6 +18,19 @@ export interface Cliente {
   dataAtualizacao?: Date;
 }
 
+// ========== Endereço CEP (resposta padronizada) ==========
+export type CepErrorCode = 'INVALID_CEP' | 'NOT_FOUND' | 'CONNECTION_ERROR';
+
+export interface EnderecoCep {
+  cep: string;
+  logradouro: string;
+  bairro: string;
+  cidade: string;
+  uf: string;
+  latitude?: number;
+  longitude?: number;
+}
+
 // ========== Veículo ==========
 export interface Veiculo {
   id: number;
@@ -58,7 +71,7 @@ export interface OrdemServico {
   dataAtualizacao?: Date;
   observacoes: string;
   valorTotal: number;
-  valorPago?: number;
+  situacao?: string;
 }
 
 // ========== Dashboard ==========

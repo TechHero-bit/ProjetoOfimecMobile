@@ -81,7 +81,7 @@ export default function Dashboard() {
       const ordensAbertas = ordens.filter((o) => o.status === 'pendente' || o.status === 'em_andamento').length;
       const receita = ordens
         .filter((o) => o.status === 'concluida')
-        .reduce((sum, o) => sum + (o.valorPago || 0), 0);
+        .reduce((sum, o) => sum + (o.valorTotal || 0), 0);
 
       setStats({
         clientes: clientes.length,
@@ -143,15 +143,33 @@ export default function Dashboard() {
   const rawDateStr = today.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
   const dateStr = rawDateStr.charAt(0).toUpperCase() + rawDateStr.slice(1);
 
-  // Mock chart data for weekly revenue
-  const mockChartData = [
-    { label: 'S', value: 1200 },
-    { label: 'T', value: 800 },
-    { label: 'Q', value: 3000 },
-    { label: 'Q', value: 2500 },
-    { label: 'S', value: 4500 },
-    { label: 'S', value: 450 },
-  ];
+  const chartData = useMemo(() => {
+    const now = new Date();
+    const dayOfWeek = now.getDay();
+    const distanceToMonday = (dayOfWeek + 6) % 7;
+    const monday = new Date(now);
+    monday.setDate(now.getDate() - distanceToMonday);
+    monday.setHours(0, 0, 0, 0);
+
+    const days = ['S', 'T', 'Q', 'Q', 'S', 'S', 'D'];
+    return days.map((label, index) => {
+      const currentDay = new Date(monday);
+      currentDay.setDate(monday.getDate() + index);
+      
+      const nextDay = new Date(currentDay);
+      nextDay.setDate(currentDay.getDate() + 1);
+
+      const value = allOrdens
+        .filter(o => {
+          if (o.status !== 'concluida') return false;
+          const date = new Date(o.dataConclusao || o.dataAtualizacao || o.dataAbertura);
+          return date >= currentDay && date < nextDay;
+        })
+        .reduce((sum, o) => sum + (o.valorTotal || 0), 0);
+
+      return { label, value };
+    });
+  }, [allOrdens]);
 
   // Monthly revenue calculation
   const receitaMensal = useMemo(() => {
@@ -161,22 +179,58 @@ export default function Dashboard() {
     return allOrdens
       .filter(o => {
         if (o.status !== 'concluida') return false;
-        const date = new Date(o.dataConclusao || o.dataAbertura);
+        const date = new Date(o.dataConclusao || o.dataAtualizacao || o.dataAbertura);
         return date.getMonth() === currentMonth && date.getFullYear() === currentYear;
       })
-      .reduce((sum, o) => sum + (o.valorPago || 0), 0);
+      .reduce((sum, o) => sum + (o.valorTotal || 0), 0);
   }, [allOrdens]);
 
-  const recebido = useMemo(() => {
+  const receitaMesPassado = useMemo(() => {
+    const now = new Date();
+    const lastMonth = now.getMonth() === 0 ? 11 : now.getMonth() - 1;
+    const yearOfLastMonth = now.getMonth() === 0 ? now.getFullYear() - 1 : now.getFullYear();
+
     return allOrdens
-      .filter(o => o.status === 'concluida')
-      .reduce((sum, o) => sum + (o.valorPago || 0), 0);
+      .filter(o => {
+        if (o.status !== 'concluida') return false;
+        const date = new Date(o.dataConclusao || o.dataAtualizacao || o.dataAbertura);
+        return date.getMonth() === lastMonth && date.getFullYear() === yearOfLastMonth;
+      })
+      .reduce((sum, o) => sum + (o.valorTotal || 0), 0);
   }, [allOrdens]);
+
+  const percentualCrescimento = useMemo(() => {
+    if (receitaMesPassado === 0) return receitaMensal > 0 ? 100 : 0;
+    return Math.round(((receitaMensal - receitaMesPassado) / receitaMesPassado) * 100);
+  }, [receitaMensal, receitaMesPassado]);
+
+  const recebido = receitaMensal; // Mesma lógica da Receita Mensal
 
   const aReceber = useMemo(() => {
     return allOrdens
-      .filter(o => o.status !== 'concluida' && o.status !== 'cancelada')
-      .reduce((sum, o) => sum + ((o.valorTotal || 0) - (o.valorPago || 0)), 0);
+      .filter(o => o.status === 'pendente' || o.status === 'em_andamento')
+      .reduce((sum, o) => sum + (o.valorTotal || 0), 0);
+  }, [allOrdens]);
+
+  const receitaSemanal = useMemo(() => {
+    const now = new Date();
+    const dayOfWeek = now.getDay();
+    const distanceToMonday = (dayOfWeek + 6) % 7; // Segunda é 0, Domingo é 6
+    const monday = new Date(now);
+    monday.setDate(now.getDate() - distanceToMonday);
+    monday.setHours(0, 0, 0, 0);
+
+    const sunday = new Date(monday);
+    sunday.setDate(monday.getDate() + 6);
+    sunday.setHours(23, 59, 59, 999);
+
+    return allOrdens
+      .filter(o => {
+        if (o.status !== 'concluida') return false;
+        const date = new Date(o.dataConclusao || o.dataAtualizacao || o.dataAbertura);
+        return date >= monday && date <= sunday;
+      })
+      .reduce((sum, o) => sum + (o.valorTotal || 0), 0);
   }, [allOrdens]);
 
   return (
@@ -190,13 +244,13 @@ export default function Dashboard() {
       >
         {/* ── Saudação ── */}
         <View style={styles.greetingSection}>
-          <View style={styles.greetingLeft}>
-            <Text style={styles.greetingTitle}>Olá, {userName}</Text>
+          <Text style={styles.greetingTitle}>Olá, {userName}</Text>
+          <View style={styles.subtitleRow}>
             <Text style={styles.greetingSubtitle}>Resumo da oficina de hoje.</Text>
-          </View>
-          <View style={styles.datePill}>
-            <Ionicons name="calendar-outline" size={14} color="#BE2528" />
-            <Text style={styles.datePillText}>{dateStr}</Text>
+            <View style={styles.datePill}>
+              <Ionicons name="calendar-outline" size={14} color="#BE2528" />
+              <Text style={styles.datePillText}>{dateStr}</Text>
+            </View>
           </View>
         </View>
 
@@ -261,22 +315,24 @@ export default function Dashboard() {
           <View style={styles.financeHeader}>
             <View>
               <Text style={styles.financeLabel}>RECEITA MENSAL</Text>
-              <Text style={styles.financeValue}>{formatCurrency(receitaMensal || 42500)}</Text>
+              <Text style={styles.financeValue}>{formatCurrency(receitaMensal || 0)}</Text>
             </View>
-            <View style={styles.financeBadge}>
-              <MaterialIcons name="trending-up" size={16} color={COLORS.tertiary} />
-              <Text style={styles.financeBadgeText}>+12%</Text>
+            <View style={[styles.financeBadge, { backgroundColor: percentualCrescimento >= 0 ? COLORS.surfaceVariant : `${COLORS.error}20` }]}>
+              <MaterialIcons name={percentualCrescimento >= 0 ? "trending-up" : "trending-down"} size={16} color={percentualCrescimento >= 0 ? COLORS.tertiary : COLORS.error} />
+              <Text style={[styles.financeBadgeText, { color: percentualCrescimento >= 0 ? COLORS.tertiary : COLORS.error }]}>
+                {percentualCrescimento >= 0 ? '+' : ''}{percentualCrescimento}%
+              </Text>
             </View>
           </View>
           <View style={styles.financeDivider} />
           <View style={styles.financeGrid}>
             <View style={styles.financeGridItem}>
               <Text style={styles.financeGridLabel}>RECEBIDO</Text>
-              <Text style={styles.financeGridValue}>{formatCurrency(recebido || 38200)}</Text>
+              <Text style={styles.financeGridValue}>{formatCurrency(recebido || 0)}</Text>
             </View>
             <View style={styles.financeGridItem}>
               <Text style={styles.financeGridLabel}>A RECEBER</Text>
-              <Text style={styles.financeGridValue}>{formatCurrency(aReceber || 4300)}</Text>
+              <Text style={styles.financeGridValue}>{formatCurrency(aReceber || 0)}</Text>
             </View>
           </View>
         </View>
@@ -284,9 +340,9 @@ export default function Dashboard() {
         {/* ── Receita Semanal (chart existente) ── */}
         <View style={styles.weeklyCard}>
           <Text style={styles.weeklyLabel}>RECEITA SEMANAL</Text>
-          <Text style={styles.weeklyValue}>{formatCurrency(stats.receita || 12450)}</Text>
+          <Text style={styles.weeklyValue}>{formatCurrency(receitaSemanal || 0)}</Text>
           <View style={styles.chartWrapper}>
-            <BarChart data={mockChartData} height={100} />
+            <BarChart data={chartData} height={100} />
           </View>
         </View>
 
@@ -358,11 +414,16 @@ const styles = StyleSheet.create({
 
   // Greeting
   greetingSection: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    flexDirection: 'column',
     alignItems: 'flex-start',
+    gap: 4,
   },
-  greetingLeft: {},
+  subtitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    width: '100%',
+  },
   greetingTitle: {
     ...TYPOGRAPHY.displayLg,
     color: COLORS.onSurface,
@@ -370,7 +431,6 @@ const styles = StyleSheet.create({
   greetingSubtitle: {
     ...TYPOGRAPHY.bodyLg,
     color: COLORS.onSurfaceVariant,
-    marginTop: 2,
   },
   datePill: {
     flexDirection: 'row',
@@ -382,7 +442,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 6,
     gap: 6,
-    marginTop: SPACING.xs,
   },
   datePillText: {
     fontSize: 12,

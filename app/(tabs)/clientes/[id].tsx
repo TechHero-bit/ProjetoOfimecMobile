@@ -1,5 +1,5 @@
 import { MaterialIcons } from '@expo/vector-icons';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams, useNavigation } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
   Alert,
@@ -18,6 +18,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { buscarCep, CepError } from '@/src/services/cep.service';
 import {
   createCliente as svcCreate,
   deleteCliente as svcDelete,
@@ -69,12 +70,14 @@ function SearchInput({
   onChangeText,
   placeholder,
   onSearch,
+  searching = false,
 }: {
   label: string;
   value?: string;
   onChangeText: (t: string) => void;
   placeholder?: string;
   onSearch: () => void;
+  searching?: boolean;
 }) {
   const [focused, setFocused] = useState(false);
   return (
@@ -92,11 +95,12 @@ function SearchInput({
           onBlur={() => setFocused(false)}
         />
         <Pressable
-          style={({ pressed }) => [inputStyles.searchBtn, pressed && inputStyles.searchBtnPressed]}
+          style={({ pressed }) => [inputStyles.searchBtn, pressed && inputStyles.searchBtnPressed, searching && { opacity: 0.6 }]}
           onPress={onSearch}
+          disabled={searching}
         >
-          <MaterialIcons name="search" size={18} color={COLORS.onSurface} />
-          <Text style={inputStyles.searchBtnText}>BUSCAR</Text>
+          <MaterialIcons name={searching ? 'hourglass-top' : 'search'} size={18} color={COLORS.onSurface} />
+          <Text style={inputStyles.searchBtnText}>{searching ? 'BUSCANDO...' : 'BUSCAR'}</Text>
         </Pressable>
       </View>
     </View>
@@ -254,10 +258,11 @@ const UF_OPTIONS = [
 
 export default function ClienteFormScreen() {
   const { id } = useLocalSearchParams();
-  const router = useRouter();
+  const navigation = useNavigation();
   const isNew = !id || id === 'new';
 
   const [loading, setLoading] = useState(false);
+  const [buscandoCep, setBuscandoCep] = useState(false);
   const [initialLoading, setInitialLoading] = useState(!isNew);
   const [form, setForm] = useState<Partial<Cliente>>({
     nome: '',
@@ -280,11 +285,11 @@ export default function ClienteFormScreen() {
         })
         .catch(() => {
           Alert.alert('Erro', 'Não foi possível carregar o cliente');
-          router.back();
+          navigation.goBack();
         })
         .finally(() => setInitialLoading(false));
     }
-  }, [id, isNew, router]);
+  }, [id, isNew, navigation]);
 
   async function handleSave() {
     if (!form.nome || !form.telefone) {
@@ -301,7 +306,7 @@ export default function ClienteFormScreen() {
         await svcUpdate(Number(id), form as any);
         Alert.alert('Sucesso', 'Cliente atualizado com sucesso!');
       }
-      router.back();
+      navigation.goBack();
     } catch (err) {
       Alert.alert('Erro', err instanceof Error ? err.message : 'Erro ao salvar o cliente');
     } finally {
@@ -309,8 +314,29 @@ export default function ClienteFormScreen() {
     }
   }
 
-  function handleBuscaCep() {
-    Alert.alert('Buscar CEP', 'Funcionalidade de busca de CEP a ser implementada.');
+  async function handleBuscaCep() {
+    if (buscandoCep) return;
+
+    setBuscandoCep(true);
+    try {
+      const endereco = await buscarCep(form.cep ?? '');
+
+      setForm((prev) => ({
+        ...prev,
+        cep: endereco.cep,
+        endereco: endereco.logradouro,
+        cidade: endereco.cidade,
+        estado: endereco.uf,
+      }));
+    } catch (err) {
+      const message =
+        err instanceof CepError
+          ? err.message
+          : 'Ocorreu um erro inesperado ao buscar o CEP.';
+      Alert.alert('Busca de CEP', message);
+    } finally {
+      setBuscandoCep(false);
+    }
   }
 
   function confirmDelete() {
@@ -326,7 +352,7 @@ export default function ClienteFormScreen() {
             try {
               setLoading(true);
               await svcDelete(Number(id));
-              router.back();
+              navigation.goBack();
             } catch (err) {
               Alert.alert('Erro', 'Não foi possível excluir o cliente. Verifique se ele possui veículos ou ordens de serviço.');
               setLoading(false);
@@ -344,7 +370,7 @@ export default function ClienteFormScreen() {
         <View style={styles.headerLeft}>
           <Pressable
             style={({ pressed }) => [styles.backBtn, pressed && styles.backBtnPressed]}
-            onPress={() => router.back()}
+            onPress={() => navigation.goBack()}
           >
             <MaterialIcons name="arrow-back" size={24} color={COLORS.primary} />
           </Pressable>
@@ -442,6 +468,7 @@ export default function ClienteFormScreen() {
                           value={form.cep}
                           onChangeText={(t) => setForm((s) => ({ ...s, cep: t }))}
                           onSearch={handleBuscaCep}
+                          searching={buscandoCep}
                         />
                       </View>
                       <View style={styles.gridFull}>

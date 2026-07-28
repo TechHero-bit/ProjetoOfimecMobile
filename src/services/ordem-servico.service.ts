@@ -1,7 +1,7 @@
 import type { OrdemServico, StatusOS } from '@/src/types';
 import { supabase } from './supabase';
 
-type OrdemServicoPayload = Omit<OrdemServico, 'id' | 'dataAbertura' | 'valorTotal' | 'dataAtualizacao'>;
+type OrdemServicoPayload = Omit<OrdemServico, 'id' | 'dataAbertura' | 'dataAtualizacao'>;
 
 function mapStatusDbToApi(dbStatus: string): StatusOS {
   if (!dbStatus) return 'pendente';
@@ -45,7 +45,7 @@ function mapDbToModel(dbOS: Record<string, any>): OrdemServico {
     dataAtualizacao: dbOS.data_atualizacao ? new Date(String(dbOS.data_atualizacao)) : undefined,
     observacoes: String(dbOS.observacoes ?? ''),
     valorTotal: Number(dbOS.valor_total ?? 0),
-    valorPago: Number(dbOS.valor_pago ?? 0),
+    situacao: String(dbOS.situacao ?? ''),
   };
 }
 
@@ -90,8 +90,8 @@ export async function getOrdemServico(id: number) {
 }
 
 export async function createOrdemServico(payload: OrdemServicoPayload) {
-  const valorTotal = payload.servicos ? payload.servicos.reduce((sum, s) => sum + s.valor, 0) : 0;
-  const numeroOs = `OS-${new Date().getFullYear()}${(new Date().getMonth() + 1).toString().padStart(2, '0')}-${Math.floor(100000 + Math.random() * 900000)}`;
+  const valorTotal = payload.valorTotal !== undefined ? payload.valorTotal : (payload.servicos ? payload.servicos.reduce((sum, s) => sum + s.valor, 0) : 0);
+  const numeroOs = payload.numeroOs || `OS-${new Date().getFullYear()}${(new Date().getMonth() + 1).toString().padStart(2, '0')}-${Math.floor(100000 + Math.random() * 900000)}`;
   const statusDb = mapStatusApiToDb(payload.status || 'pendente');
 
   const { data: osData, error: osError } = await supabase
@@ -102,15 +102,20 @@ export async function createOrdemServico(payload: OrdemServicoPayload) {
       descricao: payload.descricaoProblema,
       observacoes: payload.observacoes,
       valor_total: valorTotal,
-      valor_pago: payload.valorPago || 0,
+      situacao: payload.situacao || '',
       status: statusDb,
       numero_os: numeroOs,
       data_entrega: payload.dataEntrega ? payload.dataEntrega.toISOString() : null,
+      data_criacao: new Date().toISOString(),
+      data_atualizacao: new Date().toISOString(),
     }])
     .select()
     .single();
 
-  if (osError) throw osError;
+  if (osError) {
+    console.error('Erro ao criar ordem de serviço:', osError);
+    throw new Error(osError.message || JSON.stringify(osError));
+  }
 
   const osId = osData.id;
 
@@ -121,7 +126,11 @@ export async function createOrdemServico(payload: OrdemServicoPayload) {
       valor: s.valor,
     }));
     const { error: itemsError } = await supabase.from('itens_servico').insert(itensToInsert);
-    if (itemsError) throw itemsError;
+    if (itemsError) {
+      console.error('Erro ao inserir itens da OS (revertendo criação):', itemsError);
+      await supabase.from('ordens_servico').delete().eq('id', osId);
+      throw new Error(itemsError.message || JSON.stringify(itemsError));
+    }
   }
 
   const { data: finalOs, error: fetchError } = await supabase
@@ -143,12 +152,14 @@ export async function updateOrdemServico(id: number, payload: Partial<OrdemServi
   }
   if (payload.observacoes !== undefined) updateData.observacoes = payload.observacoes;
   if (payload.descricaoProblema !== undefined) updateData.descricao = payload.descricaoProblema;
-  if (payload.valorPago !== undefined) updateData.valor_pago = payload.valorPago;
+  if (payload.situacao !== undefined) updateData.situacao = payload.situacao;
   if (payload.dataEntrega !== undefined) {
     updateData.data_entrega = payload.dataEntrega ? payload.dataEntrega.toISOString() : null;
   }
   
-  if (payload.servicos) {
+  if (payload.valorTotal !== undefined) {
+    updateData.valor_total = payload.valorTotal;
+  } else if (payload.servicos) {
     updateData.valor_total = payload.servicos.reduce((sum, s) => sum + s.valor, 0);
   }
   
@@ -159,17 +170,25 @@ export async function updateOrdemServico(id: number, payload: Partial<OrdemServi
     if (error) throw error;
   }
 
-  if (payload.servicos && payload.servicos.length > 0) {
+  if (payload.servicos) {
     const { error: deleteError } = await supabase.from('itens_servico').delete().eq('ordem_servico_id', id);
-    if (deleteError) throw deleteError;
+    if (deleteError) {
+      console.error('Erro ao deletar itens:', deleteError);
+      throw deleteError;
+    }
 
-    const itensToInsert = payload.servicos.map((s) => ({
-      ordem_servico_id: id,
-      descricao: s.descricao,
-      valor: s.valor,
-    }));
-    const { error: insertError } = await supabase.from('itens_servico').insert(itensToInsert);
-    if (insertError) throw insertError;
+    if (payload.servicos.length > 0) {
+      const itensToInsert = payload.servicos.map((s) => ({
+        ordem_servico_id: id,
+        descricao: s.descricao,
+        valor: s.valor,
+      }));
+      const { error: insertError } = await supabase.from('itens_servico').insert(itensToInsert);
+      if (insertError) {
+        console.error('Erro ao inserir itens:', insertError);
+        throw insertError;
+      }
+    }
   }
 
   const { data: finalOs, error: fetchError } = await supabase
@@ -177,7 +196,11 @@ export async function updateOrdemServico(id: number, payload: Partial<OrdemServi
     .select('*, clientes(nome), veiculos(marca, modelo)')
     .eq('id', id)
     .single();
-  if (fetchError) throw fetchError;
+    
+  if (fetchError) {
+    console.warn('Erro ao buscar OS atualizada:', fetchError);
+    return { id, ...updateData } as any;
+  }
 
   const res = await appendItensToOrdens(finalOs);
   return res[0];

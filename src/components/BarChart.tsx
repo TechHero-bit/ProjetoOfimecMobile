@@ -1,5 +1,6 @@
+import { useEffect, useRef } from 'react';
+import { Animated, StyleSheet, Text, View } from 'react-native';
 import { BORDER_RADIUS, COLORS, SPACING, TYPOGRAPHY } from '@/src/theme';
-import { StyleSheet, Text, View } from 'react-native';
 
 type DataPoint = {
   label: string;
@@ -12,35 +13,47 @@ type Props = {
 };
 
 export default function BarChart({ data, height = 120 }: Props) {
-  // Find max value to scale the bars
-  const maxValue = Math.max(...data.map(d => d.value), 1); // Avoid division by zero
+  const maxValue = Math.max(...data.map(d => d.value), 1);
 
   return (
     <View style={[styles.container, { height }]}>
       {data.map((item, index) => {
-        const barHeightPercentage = (item.value / maxValue) * 100;
-        
-        // Use primaryContainer for most, except maybe a specific item or pattern.
-        // In the design, the last full bar is primaryContainer, earlier ones have lower opacity or use variant.
-        // Let's create a visual effect similar to the mockup.
-        const isLast = index === data.length - 2; // Actually the 'S' is max, the last 'S' is very small
-        const isVerySmall = barHeightPercentage < 25;
+        const targetPercentage = (item.value / maxValue) * 100;
+        const animatedHeight = useRef(new Animated.Value(0)).current;
+
+        useEffect(() => {
+          Animated.timing(animatedHeight, {
+            toValue: targetPercentage,
+            duration: 800,
+            delay: index * 100,
+            useNativeDriver: false,
+          }).start();
+        }, [targetPercentage]);
+
+        const isLast = index === new Date().getDay() - 1 || (new Date().getDay() === 0 && index === 6);
+        const isVerySmall = targetPercentage < 25;
         
         const bgColor = isLast 
           ? COLORS.primaryContainer 
           : isVerySmall 
             ? COLORS.surfaceVariant 
-            : `${COLORS.primaryContainer}80`; // 50% opacity
+            : `${COLORS.primaryContainer}80`;
             
         const textColor = isLast ? COLORS.primary : COLORS.onSurfaceVariant;
 
         return (
           <View key={index} style={styles.barColumn}>
             <View style={styles.barTrack}>
-              <View 
+              <Animated.View 
                 style={[
                   styles.barFill, 
-                  { height: `${barHeightPercentage}%`, backgroundColor: bgColor }
+                  { 
+                    height: animatedHeight.interpolate({
+                      inputRange: [0, 100],
+                      outputRange: ['0%', '100%']
+                    }), 
+                    backgroundColor: bgColor 
+                  }
                 ]} 
               />
             </View>

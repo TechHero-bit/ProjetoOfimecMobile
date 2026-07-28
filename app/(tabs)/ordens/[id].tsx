@@ -1,5 +1,6 @@
 import { MaterialIcons } from '@expo/vector-icons';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useLocalSearchParams, useNavigation } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
   Alert,
@@ -37,6 +38,7 @@ function DarkInput({
   placeholder,
   keyboardType,
   autoCapitalize,
+  editable = true,
 }: {
   label?: string;
   value?: string;
@@ -44,19 +46,21 @@ function DarkInput({
   placeholder?: string;
   keyboardType?: any;
   autoCapitalize?: any;
+  editable?: boolean;
 }) {
   const [focused, setFocused] = useState(false);
   return (
     <View style={inputStyles.wrapper}>
       {label && <Text style={inputStyles.label}>{label}</Text>}
       <TextInput
-        style={[inputStyles.input, focused && inputStyles.inputFocused]}
+        style={[inputStyles.input, focused && inputStyles.inputFocused, !editable && inputStyles.inputDisabled]}
         value={value}
         onChangeText={onChangeText}
         placeholder={placeholder}
         placeholderTextColor={COLORS.onSecondaryFixedVariant}
         keyboardType={keyboardType}
         autoCapitalize={autoCapitalize}
+        editable={editable}
         onFocus={() => setFocused(true)}
         onBlur={() => setFocused(false)}
       />
@@ -81,6 +85,9 @@ const inputStyles = StyleSheet.create({
   inputFocused: {
     borderBottomColor: COLORS.primaryContainer,
   },
+  inputDisabled: {
+    opacity: 0.6,
+  },
 });
 
 // ─── Status Grid Option ──────────────────────────────────────
@@ -92,6 +99,7 @@ function StatusGridOption({
   activeColor,
   activeBg,
   onSelect,
+  disabled = false,
 }: {
   label: string;
   value: StatusOS;
@@ -100,6 +108,7 @@ function StatusGridOption({
   activeColor: string;
   activeBg: string;
   onSelect: (v: StatusOS) => void;
+  disabled?: boolean;
 }) {
   const isSelected = value === currentValue;
   return (
@@ -107,8 +116,10 @@ function StatusGridOption({
       style={[
         statusStyles.option,
         isSelected && { borderColor: activeColor, backgroundColor: activeBg },
+        disabled && { opacity: 0.5 },
       ]}
       onPress={() => onSelect(value)}
+      disabled={disabled}
     >
       <MaterialIcons
         name={icon}
@@ -143,8 +154,9 @@ const statusStyles = StyleSheet.create({
 // ─── Main Screen ─────────────────────────────────────────────
 export default function OrdemFormScreen() {
   const { id } = useLocalSearchParams();
-  const router = useRouter();
+  const navigation = useNavigation();
   const isNew = !id || id === 'new';
+  const insets = useSafeAreaInsets();
 
   const [loading, setLoading] = useState(false);
   const [initialLoading, setInitialLoading] = useState(!isNew);
@@ -158,13 +170,17 @@ export default function OrdemFormScreen() {
 
   const [desconto, setDesconto] = useState(0);
 
+  const [cancelModalVisible, setCancelModalVisible] = useState(false);
+  const [cancelReason, setCancelReason] = useState('');
+  const [isReadOnly, setIsReadOnly] = useState(false);
+
   const [form, setForm] = useState<Partial<OrdemServico>>({
     clienteId: undefined,
     veiculoId: undefined,
     status: 'pendente',
     numeroOs: isNew ? `OS-${new Date().getTime().toString().slice(-6)}` : '',
     valorTotal: 0,
-    valorPago: 0,
+    situacao: '',
     descricaoProblema: '',
   });
 
@@ -176,22 +192,45 @@ export default function OrdemFormScreen() {
       })
       .catch(() => Alert.alert('Erro', 'Não foi possível carregar listas auxiliares'));
 
-    if (!isNew) {
+    if (isNew) {
+      setInitialLoading(false);
+      setForm({
+        clienteId: undefined,
+        veiculoId: undefined,
+        status: 'pendente',
+        numeroOs: `OS-${new Date().getTime().toString().slice(-6)}`,
+        valorTotal: 0,
+        situacao: '',
+        descricaoProblema: '',
+      });
+      setItensServico([]);
+      setDesconto(0);
+      setNovoItemDesc('');
+      setNovoItemQtd('1');
+      setNovoItemValor('');
+      setIsReadOnly(false);
+    } else {
       const numericId = Number(id);
       setInitialLoading(true);
       svcGet(numericId)
         .then((data) => {
           if (data) {
             setForm(data);
+            if (data.servicos) {
+              setItensServico(data.servicos);
+            }
+            if (data.status === 'concluida' || data.status === 'cancelada') {
+              setIsReadOnly(true);
+            }
           }
         })
         .catch(() => {
           Alert.alert('Erro', 'Não foi possível carregar a ordem de serviço');
-          router.back();
+          navigation.goBack();
         })
         .finally(() => setInitialLoading(false));
     }
-  }, [id, isNew, router]);
+  }, [id, isNew, navigation]);
 
   const veiculosDoCliente = form.clienteId ? veiculos.filter((v) => v.clienteId === form.clienteId) : [];
   const clienteSelecionado = clientes.find((c) => c.id === form.clienteId);
@@ -240,14 +279,15 @@ export default function OrdemFormScreen() {
 
     setLoading(true);
     try {
+      const payloadToSave = { ...form, servicos: itensServico, valorTotal: totalGeral };
       if (isNew) {
-        await svcCreate(form as any);
+        await svcCreate(payloadToSave as any);
         Alert.alert('Sucesso', 'Ordem criada com sucesso!');
       } else {
-        await svcUpdate(Number(id), form as any);
+        await svcUpdate(Number(id), payloadToSave as any);
         Alert.alert('Sucesso', 'Ordem atualizada com sucesso!');
       }
-      router.back();
+      navigation.goBack();
     } catch (err) {
       Alert.alert('Erro', err instanceof Error ? err.message : 'Erro ao salvar');
     } finally {
@@ -270,7 +310,7 @@ export default function OrdemFormScreen() {
         <View style={styles.header}>
           <Pressable
             style={({ pressed }) => [styles.backBtn, pressed && { opacity: 0.7 }]}
-            onPress={() => router.back()}
+            onPress={() => navigation.goBack()}
           >
             <MaterialIcons name="arrow-back" size={24} color={COLORS.onSurfaceVariant} />
           </Pressable>
@@ -294,7 +334,7 @@ export default function OrdemFormScreen() {
               ) : (
                 <>
                   {/* ── Status Grid ── */}
-                  <View style={styles.sectionContainer}>
+                  <View style={[styles.sectionContainer, isReadOnly && { opacity: 0.6 }]} pointerEvents={isReadOnly ? 'none' : 'auto'}>
                     <Text style={styles.sectionTitle}>STATUS DA ORDEM</Text>
                     <View style={styles.statusGrid}>
                       <StatusGridOption
@@ -302,9 +342,10 @@ export default function OrdemFormScreen() {
                         value="pendente"
                         icon="schedule"
                         currentValue={form.status as StatusOS}
-                        activeColor={COLORS.onPrimaryContainer}
-                        activeBg={`${COLORS.primaryContainer}20`}
+                        activeColor={COLORS.onSurfaceVariant}
+                        activeBg={COLORS.surfaceVariant}
                         onSelect={(v) => setForm((s) => ({ ...s, status: v }))}
+                        disabled={isReadOnly}
                       />
                       <StatusGridOption
                         label="Andamento"
@@ -314,6 +355,7 @@ export default function OrdemFormScreen() {
                         activeColor={COLORS.warningYellow}
                         activeBg={COLORS.warningYellowBg}
                         onSelect={(v) => setForm((s) => ({ ...s, status: v }))}
+                        disabled={isReadOnly}
                       />
                       <StatusGridOption
                         label="Concluída"
@@ -323,27 +365,31 @@ export default function OrdemFormScreen() {
                         activeColor={COLORS.successGreen}
                         activeBg={COLORS.successGreenBg}
                         onSelect={(v) => setForm((s) => ({ ...s, status: v }))}
+                        disabled={isReadOnly}
                       />
                       <StatusGridOption
                         label="Cancelada"
                         value="cancelada"
                         icon="cancel"
                         currentValue={form.status as StatusOS}
-                        activeColor={COLORS.error}
-                        activeBg={`${COLORS.error}20`}
-                        onSelect={(v) => setForm((s) => ({ ...s, status: v }))}
+                        activeColor={COLORS.statusCancelada}
+                        activeBg={'#450A0A'}
+                        onSelect={() => setCancelModalVisible(true)}
+                        disabled={isReadOnly}
                       />
                     </View>
                   </View>
 
                   {/* ── Cliente e Veículo Card ── */}
-                  <View style={styles.infoCard}>
+                  <View style={styles.infoCard} pointerEvents={isReadOnly ? 'none' : 'auto'}>
                     <View style={styles.infoHalf}>
                       <View style={styles.infoHeaderRow}>
                         <Text style={styles.infoTitle}>CLIENTE</Text>
-                        <Pressable onPress={() => setClientModalOpen(true)}>
-                          <MaterialIcons name="edit" size={16} color={COLORS.primary} />
-                        </Pressable>
+                        {!isReadOnly && (
+                          <Pressable onPress={() => setClientModalOpen(true)}>
+                            <MaterialIcons name="edit" size={16} color={COLORS.primary} />
+                          </Pressable>
+                        )}
                       </View>
                       {clienteSelecionado ? (
                         <View style={styles.infoContent}>
@@ -355,10 +401,12 @@ export default function OrdemFormScreen() {
                             <Text style={styles.infoSub}>{clienteSelecionado.telefone}</Text>
                           </View>
                         </View>
-                      ) : (
+                      ) : !isReadOnly ? (
                         <Pressable style={styles.emptySelector} onPress={() => setClientModalOpen(true)}>
                           <Text style={styles.emptyText}>Selecionar Cliente</Text>
                         </Pressable>
+                      ) : (
+                        <Text style={styles.emptyText}>Nenhum cliente</Text>
                       )}
                     </View>
 
@@ -367,12 +415,14 @@ export default function OrdemFormScreen() {
                     <View style={styles.infoHalf}>
                       <View style={styles.infoHeaderRow}>
                         <Text style={styles.infoTitle}>VEÍCULO</Text>
-                        <Pressable onPress={() => {
-                          if (form.clienteId) setVehicleModalOpen(true);
-                          else Alert.alert('Atenção', 'Selecione um cliente primeiro.');
-                        }}>
-                          <MaterialIcons name="edit" size={16} color={COLORS.primary} />
-                        </Pressable>
+                        {!isReadOnly && (
+                          <Pressable onPress={() => {
+                            if (form.clienteId) setVehicleModalOpen(true);
+                            else Alert.alert('Atenção', 'Selecione um cliente primeiro.');
+                          }}>
+                            <MaterialIcons name="edit" size={16} color={COLORS.primary} />
+                          </Pressable>
+                        )}
                       </View>
                       {veiculoSelecionado ? (
                         <View style={styles.infoContent}>
@@ -386,7 +436,7 @@ export default function OrdemFormScreen() {
                             </View>
                           </View>
                         </View>
-                      ) : (
+                      ) : !isReadOnly ? (
                         <Pressable 
                           style={styles.emptySelector} 
                           onPress={() => {
@@ -396,6 +446,8 @@ export default function OrdemFormScreen() {
                         >
                           <Text style={styles.emptyText}>Selecionar Veículo</Text>
                         </Pressable>
+                      ) : (
+                        <Text style={styles.emptyText}>Nenhum veículo</Text>
                       )}
                     </View>
                   </View>
@@ -407,8 +459,20 @@ export default function OrdemFormScreen() {
                         value={form.descricaoProblema}
                         onChangeText={(t) => setForm((s) => ({ ...s, descricaoProblema: t }))}
                         autoCapitalize="sentences"
+                        editable={!isReadOnly}
                      />
                   </View>
+
+                  {form.status === 'cancelada' && form.observacoes ? (
+                    <View style={styles.sectionContainer}>
+                       <DarkInput
+                          label="MOTIVO DO CANCELAMENTO"
+                          value={form.observacoes}
+                          onChangeText={() => {}}
+                          editable={false}
+                       />
+                    </View>
+                  ) : null}
 
                   {/* ── Itens e Serviços ── */}
                   <View style={styles.sectionContainer}>
@@ -423,47 +487,51 @@ export default function OrdemFormScreen() {
                             <Text style={styles.itemDesc}>{item.descricao}</Text>
                             <Text style={styles.itemVal}>{formatCurrency(item.valor || 0)}</Text>
                           </View>
-                          <Pressable onPress={() => handleRemoveItem(idx)} style={styles.itemAction}>
-                            <MaterialIcons name="delete-outline" size={20} color={COLORS.error} />
-                          </Pressable>
+                          {!isReadOnly && (
+                            <Pressable onPress={() => handleRemoveItem(idx)} style={styles.itemAction}>
+                              <MaterialIcons name="delete-outline" size={20} color={COLORS.error} />
+                            </Pressable>
+                          )}
                         </View>
                       ))}
 
                       {/* Add Item Form */}
-                      <View style={styles.addItemForm}>
-                        <View style={styles.addItemDescCol}>
-                          <TextInput
-                            style={styles.addItemInput}
-                            placeholder="Descrição..."
-                            placeholderTextColor={COLORS.onSecondaryFixedVariant}
-                            value={novoItemDesc}
-                            onChangeText={setNovoItemDesc}
-                          />
+                      {!isReadOnly && (
+                        <View style={styles.addItemForm}>
+                          <View style={styles.addItemDescCol}>
+                            <TextInput
+                              style={styles.addItemInput}
+                              placeholder="Descrição..."
+                              placeholderTextColor={COLORS.onSecondaryFixedVariant}
+                              value={novoItemDesc}
+                              onChangeText={setNovoItemDesc}
+                            />
+                          </View>
+                          <View style={styles.addItemQtdCol}>
+                            <TextInput
+                              style={styles.addItemInputCenter}
+                              placeholder="Qtd"
+                              placeholderTextColor={COLORS.onSecondaryFixedVariant}
+                              keyboardType="numeric"
+                              value={novoItemQtd}
+                              onChangeText={setNovoItemQtd}
+                            />
+                          </View>
+                          <View style={styles.addItemValCol}>
+                            <TextInput
+                              style={styles.addItemInput}
+                              placeholder="R$ Valor"
+                              placeholderTextColor={COLORS.onSecondaryFixedVariant}
+                              keyboardType="numeric"
+                              value={novoItemValor}
+                              onChangeText={setNovoItemValor}
+                            />
+                          </View>
+                          <Pressable style={styles.addBtn} onPress={handleAddItem}>
+                            <MaterialIcons name="add" size={20} color={COLORS.onSurface} />
+                          </Pressable>
                         </View>
-                        <View style={styles.addItemQtdCol}>
-                          <TextInput
-                            style={styles.addItemInputCenter}
-                            placeholder="Qtd"
-                            placeholderTextColor={COLORS.onSecondaryFixedVariant}
-                            keyboardType="numeric"
-                            value={novoItemQtd}
-                            onChangeText={setNovoItemQtd}
-                          />
-                        </View>
-                        <View style={styles.addItemValCol}>
-                          <TextInput
-                            style={styles.addItemInput}
-                            placeholder="R$ Valor"
-                            placeholderTextColor={COLORS.onSecondaryFixedVariant}
-                            keyboardType="numeric"
-                            value={novoItemValor}
-                            onChangeText={setNovoItemValor}
-                          />
-                        </View>
-                        <Pressable style={styles.addBtn} onPress={handleAddItem}>
-                          <MaterialIcons name="add" size={20} color={COLORS.onSurface} />
-                        </Pressable>
-                      </View>
+                      )}
                     </View>
                   </View>
 
@@ -477,6 +545,7 @@ export default function OrdemFormScreen() {
                            onChangeText={(t) => setDesconto(parseFloat(t) || 0)}
                            placeholder="Valor do desconto R$"
                            keyboardType="numeric"
+                           editable={!isReadOnly}
                         />
                       </View>
                     </View>
@@ -501,19 +570,21 @@ export default function OrdemFormScreen() {
 
                   {/* ── Actions ── */}
                   <View style={styles.actions}>
-                    <Pressable
-                      style={({ pressed }) => [styles.btnPrimary, pressed && { opacity: 0.85 }]}
-                      onPress={handleSave}
-                      disabled={loading}
-                    >
-                      <Text style={styles.btnPrimaryText}>{loading ? 'Salvando...' : 'Salvar Ordem de Serviço'}</Text>
-                    </Pressable>
+                    {!isReadOnly && (
+                      <Pressable
+                        style={({ pressed }) => [styles.btnPrimary, pressed && { opacity: 0.85 }]}
+                        onPress={handleSave}
+                        disabled={loading}
+                      >
+                        <Text style={styles.btnPrimaryText}>{loading ? 'Salvando...' : 'Salvar Ordem de Serviço'}</Text>
+                      </Pressable>
+                    )}
                     <Pressable
                       style={({ pressed }) => [styles.btnOutline, pressed && { backgroundColor: COLORS.surfaceVariant }]}
-                      onPress={() => router.back()}
+                      onPress={() => navigation.goBack()}
                       disabled={loading}
                     >
-                      <Text style={styles.btnOutlineText}>Cancelar</Text>
+                      <Text style={styles.btnOutlineText}>{isReadOnly ? 'Voltar' : 'Cancelar'}</Text>
                     </Pressable>
                   </View>
                 </>
@@ -523,9 +594,34 @@ export default function OrdemFormScreen() {
         </KeyboardAvoidingView>
 
         {/* ── Modals ── */}
+        <Modal visible={cancelModalVisible} transparent animationType="slide">
+          <Pressable style={styles.modalOverlay} onPress={() => setCancelModalVisible(false)}>
+            <View style={[styles.modalSheet, { paddingBottom: insets.bottom + SPACING.lg }]}>
+              <Text style={styles.modalTitle}>Motivo do Cancelamento</Text>
+              <DarkInput 
+                 placeholder="Digite o motivo..."
+                 value={cancelReason}
+                 onChangeText={setCancelReason}
+              />
+              <View style={{ flexDirection: 'row', gap: SPACING.md, marginTop: SPACING.lg }}>
+                <Pressable style={[styles.btnPrimary, { flex: 1 }]} onPress={() => {
+                  if (!cancelReason.trim()) { Alert.alert('Erro', 'Motivo obrigatório'); return; }
+                  setForm(s => ({ ...s, status: 'cancelada', observacoes: cancelReason }));
+                  setCancelModalVisible(false);
+                }}>
+                  <Text style={styles.btnPrimaryText}>Confirmar</Text>
+                </Pressable>
+                <Pressable style={[styles.btnOutline, { flex: 1 }]} onPress={() => setCancelModalVisible(false)}>
+                  <Text style={styles.btnOutlineText}>Voltar</Text>
+                </Pressable>
+              </View>
+            </View>
+          </Pressable>
+        </Modal>
+
         <Modal visible={clientModalOpen} transparent animationType="slide">
           <Pressable style={styles.modalOverlay} onPress={() => setClientModalOpen(false)}>
-            <View style={styles.modalSheet}>
+            <View style={[styles.modalSheet, { paddingBottom: insets.bottom + SPACING.lg }]}>
               <Text style={styles.modalTitle}>Selecionar Cliente</Text>
               <FlatList
                 data={clientes}
@@ -548,7 +644,7 @@ export default function OrdemFormScreen() {
 
         <Modal visible={vehicleModalOpen} transparent animationType="slide">
           <Pressable style={styles.modalOverlay} onPress={() => setVehicleModalOpen(false)}>
-            <View style={styles.modalSheet}>
+            <View style={[styles.modalSheet, { paddingBottom: insets.bottom + SPACING.lg }]}>
               <Text style={styles.modalTitle}>Selecionar Veículo</Text>
               {veiculosDoCliente.length > 0 ? (
                 <FlatList

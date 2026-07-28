@@ -47,9 +47,9 @@ export default function OrdemCard({
     switch(currentStatus) {
       case 'pendente':
         return { 
-          color: '#ef4444', 
+          color: COLORS.onSurfaceVariant, 
           label: 'PENDENTE', 
-          bg: '#7f1d1d' 
+          bg: COLORS.surfaceVariant 
         };
       case 'em_andamento':
         return { 
@@ -67,7 +67,7 @@ export default function OrdemCard({
         return { 
           color: COLORS.statusCancelada, 
           label: 'CANCELADA', 
-          bg: '#7F1D1D' 
+          bg: '#450A0A' 
         };
       default:
         return { 

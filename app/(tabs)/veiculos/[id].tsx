@@ -1,5 +1,5 @@
 import { MaterialIcons } from '@expo/vector-icons';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams, useNavigation } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
   Alert,
@@ -198,7 +198,7 @@ const COMBUSTIVEL_OPTIONS = [
 
 export default function VeiculoFormScreen() {
   const { id } = useLocalSearchParams();
-  const router = useRouter();
+  const navigation = useNavigation();
   const isNew = !id || id === 'new';
 
   const [loading, setLoading] = useState(false);
@@ -229,11 +229,11 @@ export default function VeiculoFormScreen() {
         })
         .catch(() => {
           Alert.alert('Erro', 'Não foi possível carregar o veículo');
-          router.back();
+          navigation.goBack();
         })
         .finally(() => setInitialLoading(false));
     }
-  }, [id, isNew, router]);
+  }, [id, isNew, navigation]);
 
   const selectedCliente = clientes.find((c) => c.id === form.clienteId);
 
@@ -252,7 +252,7 @@ export default function VeiculoFormScreen() {
         await svcUpdate(Number(id), form as any);
         Alert.alert('Sucesso', 'Veículo atualizado com sucesso!');
       }
-      router.back();
+      navigation.goBack();
     } catch (err) {
       Alert.alert('Erro', err instanceof Error ? err.message : 'Erro ao salvar o veículo');
     } finally {
@@ -273,7 +273,7 @@ export default function VeiculoFormScreen() {
             try {
               setLoading(true);
               await svcDelete(Number(id));
-              router.back();
+              navigation.goBack();
             } catch (err) {
               Alert.alert('Erro', 'Não foi possível excluir o veículo.');
               setLoading(false);
@@ -302,7 +302,7 @@ export default function VeiculoFormScreen() {
             <View style={styles.header}>
               <Pressable
                 style={({ pressed }) => [styles.backBtn, pressed && styles.backBtnPressed]}
-                onPress={() => router.back()}
+                onPress={() => navigation.goBack()}
               >
                 <MaterialIcons name="arrow-back" size={24} color={COLORS.onSurfaceVariant} />
               </Pressable>
@@ -443,7 +443,7 @@ export default function VeiculoFormScreen() {
 
                   <Pressable
                     style={({ pressed }) => [styles.btnOutline, pressed && { backgroundColor: COLORS.surfaceVariant }]}
-                    onPress={() => router.back()}
+                    onPress={() => navigation.goBack()}
                     disabled={loading}
                   >
                     <Text style={styles.btnOutlineText}>Cancelar</Text>
