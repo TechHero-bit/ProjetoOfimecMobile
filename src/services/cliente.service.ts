@@ -3,6 +3,17 @@ import { supabase } from './supabase';
 
 type ClientePayload = Omit<Cliente, 'id' | 'dataCadastro' | 'dataAtualizacao'>;
 
+type ClienteStatus = NonNullable<Cliente['status']>;
+
+function mapStatusDbToModel(status: unknown): ClienteStatus | undefined {
+  if (!status) return undefined;
+  const normalized = String(status).toLowerCase();
+  if (normalized === 'ativo' || normalized === 'inativo' || normalized === 'inadimplente') {
+    return normalized;
+  }
+  return undefined;
+}
+
 function mapDbToModel(item: Record<string, any>): Cliente {
   return {
     id: Number(item.id),
@@ -14,6 +25,7 @@ function mapDbToModel(item: Record<string, any>): Cliente {
     cidade: item.cidade ? String(item.cidade) : undefined,
     estado: item.estado ? String(item.estado) : undefined,
     cep: item.cep ? String(item.cep) : undefined,
+    status: mapStatusDbToModel(item.status),
     dataCadastro: item.data_criacao ? new Date(String(item.data_criacao)) : undefined,
     dataAtualizacao: item.data_atualizacao ? new Date(String(item.data_atualizacao)) : undefined,
   };
@@ -21,7 +33,11 @@ function mapDbToModel(item: Record<string, any>): Cliente {
 
 function mapModelToDb(payload: Partial<ClientePayload>): Record<string, any> {
   const dbData: Record<string, any> = { ...payload };
-  return dbData; // As other fields are identical in name
+
+  delete dbData.dataCadastro;
+  delete dbData.dataAtualizacao;
+
+  return dbData;
 }
 
 export async function listClientes() {
@@ -50,15 +66,15 @@ export async function createCliente(payload: ClientePayload) {
 export async function updateCliente(id: number, payload: Partial<ClientePayload>) {
   const dbData = mapModelToDb(payload);
   dbData.data_atualizacao = new Date().toISOString();
-  
-  const { data, error } = await supabase
+
+  const { error } = await supabase
     .from('clientes')
     .update(dbData)
-    .eq('id', id)
-    .select()
-    .single();
+    .eq('id', id);
   if (error) throw error;
-  return mapDbToModel(data);
+
+  const updated = await getCliente(id);
+  return updated ?? mapDbToModel({ id, ...dbData });
 }
 
 export async function deleteCliente(id: number) {

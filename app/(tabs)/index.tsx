@@ -263,11 +263,12 @@ export default function Dashboard() {
           </View>
         </View>
 
+
         {/* ── Cards de Resumo (Bento Grid) ── */}
         <View style={styles.bentoGrid}>
           {/* Clientes Ativos */}
           {/* RESPONSIVIDADE: Ajuste dinâmico de estilo caso seja tablet (colocando os 3 na mesma linha) */}
-          <Pressable style={[styles.bentoCardHalf, isTablet && styles.bentoCardTablet]} onPress={() => router.push('/(tabs)/clientes')}>
+          <Pressable style={[styles.bentoCardHalf, isTablet && styles.bentoCardTablet]} onPress={() => router.replace('/(tabs)/clientes')}>
             <View style={[styles.bentoIndicator, { backgroundColor: COLORS.tertiary }]} />
             <View style={styles.bentoContent}>
               <MaterialIcons name="person" size={isTablet ? 32 : 24} color={COLORS.tertiary} />
@@ -277,7 +278,7 @@ export default function Dashboard() {
           </Pressable>
 
           {/* Veículos no Pátio */}
-          <Pressable style={[styles.bentoCardHalf, isTablet && styles.bentoCardTablet]} onPress={() => router.push('/(tabs)/veiculos')}>
+          <Pressable style={[styles.bentoCardHalf, isTablet && styles.bentoCardTablet]} onPress={() => router.replace('/(tabs)/veiculos')}>
             <View style={[styles.bentoIndicator, { backgroundColor: COLORS.secondaryFixedDim }]} />
             <View style={styles.bentoContent}>
               <MaterialIcons name="directions-car" size={isTablet ? 32 : 24} color={COLORS.secondaryFixedDim} />
@@ -287,7 +288,7 @@ export default function Dashboard() {
           </Pressable>
 
           {/* Ordens Abertas (full width) */}
-          <Pressable style={[styles.bentoCardFull, isTablet && styles.bentoCardTablet]} onPress={() => router.push('/(tabs)/ordens')}>
+          <Pressable style={[styles.bentoCardFull, isTablet && styles.bentoCardTablet]} onPress={() => router.replace('/(tabs)/ordens')}>
             <View style={[styles.bentoIndicator, { backgroundColor: COLORS.primaryContainer }]} />
             <View style={styles.bentoContent}>
               <MaterialIcons name="assignment" size={isTablet ? 32 : 24} color={COLORS.primaryContainer} />
@@ -366,7 +367,7 @@ export default function Dashboard() {
         {/* ── Ordens Recentes ── */}
         <View style={styles.recentHeader}>
           <Text style={styles.sectionTitle}>Ordens Recentes</Text>
-          <Pressable onPress={() => router.push('/(tabs)/ordens')}>
+          <Pressable onPress={() => router.replace('/(tabs)/ordens')}>
             <Text style={styles.seeAllText}>VER TODAS</Text>
           </Pressable>
         </View>
@@ -411,6 +412,32 @@ export default function Dashboard() {
           ) : (
             <Text style={styles.emptyText}>Nenhuma ordem recente.</Text>
           )}
+        </View>
+
+        <View style={styles.quickActions}>
+          <Pressable
+            style={({ pressed }) => [styles.quickActionButton, pressed && styles.quickActionPressed]}
+            onPress={() => router.push('/(tabs)/clientes/new')}
+          >
+            <MaterialIcons name="person-add" size={22} color={COLORS.onPrimaryContainer} />
+            <Text style={styles.quickActionText}>Adicionar cliente</Text>
+          </Pressable>
+
+          <Pressable
+            style={({ pressed }) => [styles.quickActionButton, pressed && styles.quickActionPressed]}
+            onPress={() => router.push('/(tabs)/veiculos/new')}
+          >
+            <MaterialIcons name="add-road" size={22} color={COLORS.onPrimaryContainer} />
+            <Text style={styles.quickActionText}>Adicionar carro</Text>
+          </Pressable>
+
+          <Pressable
+            style={({ pressed }) => [styles.quickActionButton, pressed && styles.quickActionPressed]}
+            onPress={() => router.push('/(tabs)/ordens/new')}
+          >
+            <MaterialIcons name="post-add" size={22} color={COLORS.onPrimaryContainer} />
+            <Text style={styles.quickActionText}>Adicionar OS</Text>
+          </Pressable>
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -464,6 +491,33 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#e3beba',
     fontWeight: '500',
+  },
+  quickActions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: SPACING.sm,
+  },
+  quickActionButton: {
+    flex: 1,
+    minWidth: 104,
+    minHeight: 72,
+    backgroundColor: COLORS.primaryContainer,
+    borderRadius: BORDER_RADIUS.md,
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: SPACING.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: SPACING.xs,
+    ...SHADOWS.level1,
+  },
+  quickActionPressed: {
+    opacity: 0.85,
+    transform: [{ scale: 0.98 }],
+  },
+  quickActionText: {
+    ...TYPOGRAPHY.labelCaps,
+    color: COLORS.onPrimaryContainer,
+    textAlign: 'center',
   },
 
   // Bento Grid

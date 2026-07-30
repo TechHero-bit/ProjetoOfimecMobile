@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Tabs } from 'expo-router';
+import { router, Tabs } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { COLORS, SPACING } from '@/src/theme';
@@ -51,6 +51,12 @@ export default function TabLayout() {
       />
       <Tabs.Screen
         name="ordens"
+        listeners={{
+          tabPress: (event) => {
+            event.preventDefault();
+            router.replace('/(tabs)/ordens');
+          },
+        }}
         options={{
           title: 'Ordens',
           tabBarIcon: ({ color, size, focused }) => (
@@ -60,6 +66,12 @@ export default function TabLayout() {
       />
       <Tabs.Screen
         name="clientes"
+        listeners={{
+          tabPress: (event) => {
+            event.preventDefault();
+            router.replace('/(tabs)/clientes');
+          },
+        }}
         options={{
           title: 'Clientes',
           tabBarIcon: ({ color, size, focused }) => (
@@ -69,6 +81,12 @@ export default function TabLayout() {
       />
       <Tabs.Screen
         name="veiculos"
+        listeners={{
+          tabPress: (event) => {
+            event.preventDefault();
+            router.replace('/(tabs)/veiculos');
+          },
+        }}
         options={{
           title: 'Veículos',
           tabBarIcon: ({ color, size, focused }) => (

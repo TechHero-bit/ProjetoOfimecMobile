@@ -1,28 +1,30 @@
-import { useRouter, useFocusEffect } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { FlatList, RefreshControl, StyleSheet, View, Text } from 'react-native';
+import { Alert, FlatList, Modal, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
 
-import { listClientes } from '@/src/services/cliente.service';
-import { listVeiculos } from '@/src/services/veiculo.service';
+import { listClientes, updateCliente } from '@/src/services/cliente.service';
 import { listOrdensServico } from '@/src/services/ordem-servico.service';
-import { COLORS, SPACING, TYPOGRAPHY } from '@/src/theme';
+import { listVeiculos } from '@/src/services/veiculo.service';
+import { BORDER_RADIUS, COLORS, SPACING, TYPOGRAPHY } from '@/src/theme';
 import type { Cliente } from '@/src/types';
 
 import AppHeader from '@/src/components/AppHeader';
-import SearchBar from '@/src/components/SearchBar';
-import FilterChips, { FilterOption } from '@/src/components/FilterChips';
 import ClienteCard from '@/src/components/ClienteCard';
 import FAB from '@/src/components/FAB';
+import FilterChips, { FilterOption } from '@/src/components/FilterChips';
+import SearchBar from '@/src/components/SearchBar';
+
+type ClienteStatus = NonNullable<Cliente['status']>;
 
 type ClienteWithDetails = Cliente & {
   veiculosCount: number;
-  status: 'ativo' | 'inativo' | 'inadimplente';
+  status: ClienteStatus;
   ultimaVisita: string;
 };
 
 const FILTER_OPTIONS: FilterOption[] = [
   { id: 'todos', label: 'TODOS' },
-  { id: 'ativo', label: 'COM OS ATIVA' },
+  { id: 'ativo', label: 'ATIVOS' },
   { id: 'inativo', label: 'INATIVOS' },
   { id: 'inadimplente', label: 'INADIMPLENTES' },
 ];
@@ -33,6 +35,8 @@ export default function ClientesScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedFilter, setSelectedFilter] = useState('todos');
   const [loading, setLoading] = useState(true);
+  const [statusModalVisible, setStatusModalVisible] = useState(false);
+  const [selectedCliente, setSelectedCliente] = useState<ClienteWithDetails | null>(null);
   const router = useRouter();
 
   const loadData = async () => {
@@ -42,23 +46,21 @@ export default function ClientesScreen() {
         listVeiculos(),
         listOrdensServico()
       ]);
-      
+
       const clientesDetalhes: ClienteWithDetails[] = clientesData.map(c => {
         // Count veiculos
         const veiculos = veiculosData.filter(v => v.clienteId === c.id);
-        
+
         // Find ordens
         const ordens = ordensData.filter(o => o.clienteId === c.id);
-        
+
         // Determine status
-        let status: 'ativo' | 'inativo' | 'inadimplente' = 'inativo';
-        const temOsAtiva = ordens.some(o => o.status === 'pendente' || o.status === 'em_andamento');
-        if (temOsAtiva) {
+        let status: ClienteStatus = c.status || 'inativo';
+        const temOsAtiva = ordens.some(o => (o.status as string) === 'pendente' || o.status === 'em_andamento');
+        if (temOsAtiva && !c.status) {
           status = 'ativo';
         }
-        // Simplified inadimplente logic: for now we just don't flag them unless we had payment tracking
-        // We'll leave it as ativo/inativo based on OS
-        
+
         // Last visit
         let ultimaVisita = 'N/A';
         if (ordens.length > 0) {
@@ -94,22 +96,22 @@ export default function ClientesScreen() {
 
   const applyFilters = (data: ClienteWithDetails[], query: string, filter: string) => {
     let result = data;
-    
+
     // Filter by status
     if (filter !== 'todos') {
       result = result.filter(c => c.status === filter);
     }
-    
+
     // Filter by query
     if (query.trim()) {
       const lowerQuery = query.toLowerCase();
-      result = result.filter(c => 
-        c.nome.toLowerCase().includes(lowerQuery) || 
+      result = result.filter(c =>
+        c.nome.toLowerCase().includes(lowerQuery) ||
         c.cpf.includes(lowerQuery) ||
         (c.telefone && c.telefone.includes(lowerQuery))
       );
     }
-    
+
     setFilteredClientes(result);
   };
 
@@ -123,26 +125,65 @@ export default function ClientesScreen() {
     applyFilters(clientes, searchQuery, id);
   };
 
+  const closeStatusModal = () => {
+    setStatusModalVisible(false);
+    setSelectedCliente(null);
+  };
+
+  const handleUpdateStatus = async (newStatus: ClienteStatus) => {
+    if (!selectedCliente) return;
+
+    const cliente = selectedCliente;
+    closeStatusModal();
+
+    if (cliente.status === newStatus) return;
+
+    const previousClientes = clientes;
+    const nextClientes = clientes.map((item) =>
+      item.id === cliente.id ? { ...item, status: newStatus } : item
+    );
+
+    setClientes(nextClientes);
+    applyFilters(nextClientes, searchQuery, selectedFilter);
+    setLoading(true);
+
+    try {
+      const updated = await updateCliente(cliente.id, { status: newStatus });
+      const committedClientes = nextClientes.map((item) =>
+        item.id === cliente.id ? { ...item, ...updated, status: updated.status || newStatus } : item
+      );
+      setClientes(committedClientes);
+      applyFilters(committedClientes, searchQuery, selectedFilter);
+    } catch (err) {
+      console.error(err);
+      setClientes(previousClientes);
+      applyFilters(previousClientes, searchQuery, selectedFilter);
+      Alert.alert('Erro', err instanceof Error ? err.message : 'Não foi possível atualizar o status do cliente.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <View style={styles.root}>
       <AppHeader />
-      
+
       <View style={styles.headerArea}>
         <Text style={styles.title}>Clientes</Text>
         <Text style={styles.subtitle}>Gerenciamento e histórico de clientes cadastrados.</Text>
       </View>
 
       <View style={styles.searchArea}>
-        <SearchBar 
-          value={searchQuery} 
-          onChangeText={handleSearch} 
-          placeholder="Buscar cliente..." 
+        <SearchBar
+          value={searchQuery}
+          onChangeText={handleSearch}
+          placeholder="Buscar cliente..."
           rightIcon="filter"
         />
       </View>
 
       <View style={styles.filterArea}>
-        <FilterChips 
+        <FilterChips
           options={FILTER_OPTIONS}
           selectedId={selectedFilter}
           onSelect={handleFilterSelect}
@@ -157,13 +198,17 @@ export default function ClientesScreen() {
           <RefreshControl refreshing={loading} onRefresh={loadData} tintColor={COLORS.primary} />
         }
         renderItem={({ item }) => (
-          <ClienteCard 
+          <ClienteCard
             nome={item.nome}
             telefone={item.telefone}
             veiculosCount={item.veiculosCount}
             ultimaVisita={item.ultimaVisita}
             status={item.status}
             onPress={() => router.push(`/(tabs)/clientes/${item.id}`)}
+            onStatusPress={() => {
+              setSelectedCliente(item);
+              setStatusModalVisible(true);
+            }}
           />
         )}
         ListEmptyComponent={
@@ -174,16 +219,51 @@ export default function ClientesScreen() {
           ) : null
         }
       />
-      
+
       <FAB icon="add" onPress={() => router.push('/(tabs)/clientes/new')} />
+
+      <Modal
+        visible={statusModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={closeStatusModal}
+      >
+        <View style={styles.modalOverlay}>
+          <Pressable style={StyleSheet.absoluteFill} onPress={closeStatusModal} />
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Alterar Status</Text>
+
+            <Pressable
+              style={[styles.modalOption, selectedCliente?.status === 'ativo' && styles.modalOptionActive]}
+              onPress={() => handleUpdateStatus('ativo')}
+            >
+              <Text style={[styles.modalOptionText, selectedCliente?.status === 'ativo' && { color: COLORS.primaryContainer }]}>Ativo</Text>
+            </Pressable>
+
+            <Pressable
+              style={[styles.modalOption, selectedCliente?.status === 'inativo' && styles.modalOptionActive]}
+              onPress={() => handleUpdateStatus('inativo')}
+            >
+              <Text style={[styles.modalOptionText, selectedCliente?.status === 'inativo' && { color: COLORS.primaryContainer }]}>Inativo</Text>
+            </Pressable>
+
+            <Pressable
+              style={[styles.modalOption, selectedCliente?.status === 'inadimplente' && styles.modalOptionActive]}
+              onPress={() => handleUpdateStatus('inadimplente')}
+            >
+              <Text style={[styles.modalOptionText, selectedCliente?.status === 'inadimplente' && { color: COLORS.primaryContainer }]}>Inadimplente</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { 
-    flex: 1, 
-    backgroundColor: COLORS.background 
+  root: {
+    flex: 1,
+    backgroundColor: COLORS.background
   },
   headerArea: {
     padding: SPACING.md,
@@ -205,7 +285,7 @@ const styles = StyleSheet.create({
   filterArea: {
     marginBottom: SPACING.sm,
   },
-  list: { 
+  list: {
     padding: SPACING.md,
     paddingTop: 0,
     paddingBottom: 100,
@@ -217,4 +297,33 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: SPACING.xl,
   },
+  modalOverlay: {
+    flex: 1,
+    justifyContent: 'center',
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    padding: SPACING.xl,
+  },
+  modalContent: {
+    backgroundColor: COLORS.surfaceContainerHigh,
+    borderRadius: BORDER_RADIUS.xl,
+    padding: SPACING.lg,
+  },
+  modalTitle: {
+    ...TYPOGRAPHY.headlineSm,
+    color: COLORS.onSurface,
+    marginBottom: SPACING.md,
+  },
+  modalOption: {
+    paddingVertical: SPACING.md,
+    paddingHorizontal: SPACING.sm,
+    borderRadius: BORDER_RADIUS.md,
+    marginBottom: SPACING.xs,
+  },
+  modalOptionActive: {
+    backgroundColor: `${COLORS.primaryContainer}20`,
+  },
+  modalOptionText: {
+    ...TYPOGRAPHY.bodyLg,
+    color: COLORS.onSurface,
+  }
 });

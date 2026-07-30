@@ -9,35 +9,37 @@ type Props = {
   ultimaVisita?: string;
   status?: 'ativo' | 'inativo' | 'inadimplente';
   onPress?: () => void;
+  onStatusPress?: () => void;
   style?: any;
 };
 
-export default function ClienteCard({ 
-  nome, 
-  telefone, 
-  veiculosCount = 0, 
-  ultimaVisita = 'N/A', 
-  status = 'ativo', 
+export default function ClienteCard({
+  nome,
+  telefone,
+  veiculosCount = 0,
+  ultimaVisita = 'N/A',
+  status = 'ativo',
   onPress,
-  style 
+  onStatusPress,
+  style
 }: Props) {
-  
+
   // Get Monogram (up to 2 letters)
   const monogram = nome.split(' ').slice(0, 2).map(n => n[0]).join('').toUpperCase();
 
   const getStatusConfig = () => {
-    switch(status) {
+    switch (status) {
       case 'inadimplente':
         return { color: COLORS.error, label: 'Inadimplente', icon: 'warning' };
       case 'inativo':
         return { color: COLORS.onSurfaceVariant, label: 'Inativo', dot: true };
       default:
-        return { color: COLORS.primary, label: 'OS Ativa', dot: true };
+        return { color: COLORS.primary, label: 'Ativo', dot: true };
     }
   };
 
   const statusConfig = getStatusConfig();
-  
+
   const getMonogramStyle = () => {
     if (status === 'inadimplente') {
       return { bg: '#302022', border: `${COLORS.error}4D`, text: COLORS.error };
@@ -61,11 +63,11 @@ export default function ClienteCard({
       onPress={onPress}
     >
       <View style={[styles.borderIndicator, { backgroundColor: statusConfig.color }]} />
-      
+
       <View style={styles.topSection}>
         <View style={styles.headerLeft}>
           <View style={[
-            styles.monogramContainer, 
+            styles.monogramContainer,
             { backgroundColor: monoStyle.bg, borderColor: monoStyle.border }
           ]}>
             <Text style={[styles.monogramText, { color: monoStyle.text }]}>{monogram}</Text>
@@ -80,7 +82,7 @@ export default function ClienteCard({
             )}
           </View>
         </View>
-        
+
         <View style={styles.veiculosBadge}>
           <Text style={styles.veiculosText}>{veiculosCount} VEÍCULO{veiculosCount !== 1 ? 'S' : ''}</Text>
         </View>
@@ -94,11 +96,19 @@ export default function ClienteCard({
           </View>
           <View style={styles.infoCol}>
             <Text style={styles.infoLabel}>STATUS</Text>
-            <View style={styles.statusContainer}>
+            <Pressable
+              style={({ pressed }) => [styles.statusContainer, pressed && { opacity: 0.7 }]}
+              onPress={(event) => {
+                event.stopPropagation();
+                onStatusPress?.();
+              }}
+              disabled={!onStatusPress}
+              hitSlop={8}
+            >
               {statusConfig.dot && <View style={[styles.statusDot, { backgroundColor: statusConfig.color }]} />}
-              {statusConfig.icon && <Ionicons name={statusConfig.icon as any} size={14} color={statusConfig.color} style={{marginRight: 4}} />}
+              {statusConfig.icon && <Ionicons name={statusConfig.icon as any} size={14} color={statusConfig.color} style={{ marginRight: 4 }} />}
               <Text style={[styles.statusText, { color: statusConfig.color }]}>{statusConfig.label}</Text>
-            </View>
+            </Pressable>
           </View>
         </View>
         <Ionicons name="chevron-forward" size={20} color={COLORS.onSurfaceVariant} />

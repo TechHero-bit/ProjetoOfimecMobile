@@ -14,6 +14,7 @@ export interface Cliente {
   cidade?: string;
   estado?: string;
   cep?: string;
+  status?: 'ativo' | 'inativo' | 'inadimplente';
   dataCadastro?: Date;
   dataAtualizacao?: Date;
 }

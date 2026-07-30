@@ -25,6 +25,7 @@ import {
   getCliente as svcGet,
   updateCliente as svcUpdate,
 } from '@/src/services/cliente.service';
+import { formatCPFCNPJ, formatPhone } from '@/src/utils/formatters';
 import { BORDER_RADIUS, COLORS, SHADOWS, SPACING, TYPOGRAPHY } from '@/src/theme';
 import type { Cliente } from '@/src/types';
 
@@ -36,6 +37,7 @@ function DarkInput({
   placeholder,
   keyboardType,
   autoCapitalize,
+  maxLength,
 }: {
   label: string;
   value?: string;
@@ -43,6 +45,7 @@ function DarkInput({
   placeholder?: string;
   keyboardType?: any;
   autoCapitalize?: any;
+  maxLength?: number;
 }) {
   const [focused, setFocused] = useState(false);
   return (
@@ -56,6 +59,7 @@ function DarkInput({
         placeholderTextColor={COLORS.onSecondaryFixedVariant}
         keyboardType={keyboardType}
         autoCapitalize={autoCapitalize}
+        maxLength={maxLength}
         onFocus={() => setFocused(true)}
         onBlur={() => setFocused(false)}
       />
@@ -256,6 +260,12 @@ const UF_OPTIONS = [
   { label: 'BA', value: 'BA' },
 ];
 
+const STATUS_OPTIONS = [
+  { label: 'Ativo', value: 'ativo' },
+  { label: 'Inativo', value: 'inativo' },
+  { label: 'Inadimplente', value: 'inadimplente' },
+];
+
 export default function ClienteFormScreen() {
   const { id } = useLocalSearchParams();
   const navigation = useNavigation();
@@ -427,8 +437,9 @@ export default function ClienteFormScreen() {
                           label="CPF / CNPJ"
                           placeholder="000.000.000-00"
                           value={form.cpf}
-                          onChangeText={(t) => setForm((s) => ({ ...s, cpf: t }))}
+                          onChangeText={(t) => setForm((s) => ({ ...s, cpf: formatCPFCNPJ(t) }))}
                           keyboardType="numeric"
+                          maxLength={18}
                         />
                       </View>
                       <View style={styles.gridHalf}>
@@ -436,8 +447,9 @@ export default function ClienteFormScreen() {
                           label="TELEFONE"
                           placeholder="(00) 00000-0000"
                           value={form.telefone}
-                          onChangeText={(t) => setForm((s) => ({ ...s, telefone: t }))}
+                          onChangeText={(t) => setForm((s) => ({ ...s, telefone: formatPhone(t) }))}
                           keyboardType="phone-pad"
+                          maxLength={15}
                         />
                       </View>
                       <View style={styles.gridFull}>
@@ -448,6 +460,14 @@ export default function ClienteFormScreen() {
                           onChangeText={(t) => setForm((s) => ({ ...s, email: t }))}
                           keyboardType="email-address"
                           autoCapitalize="none"
+                        />
+                      </View>
+                      <View style={styles.gridFull}>
+                        <DropdownSelect
+                          label="STATUS"
+                          value={form.status || 'ativo'}
+                          options={STATUS_OPTIONS}
+                          onSelect={(v) => setForm((s) => ({ ...s, status: v as any }))}
                         />
                       </View>
                     </View>
